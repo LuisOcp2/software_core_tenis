@@ -1,0 +1,55 @@
+﻿/build/
+/nbproject/private/
+/dist/
+/paqueteria
+/build_test/
+/nul
+/lib
+/nbproject/
+/inventario.sql
+/inventario_2.sql
+/inventory_app
+/inventory_api
+/inventory_api.rar
+/installer_resources
+/sql
+/optimizacion
+
+
+# Auto-generated entries
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Sensitive files (auto-detected)
+build
+build.xml
+dist
+
