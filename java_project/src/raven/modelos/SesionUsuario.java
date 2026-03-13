@@ -1,60 +1,67 @@
 package raven.modelos;
 
 /**
- * Clase singleton para mantener la información del usuario actualmente
- * logueado.
+ * Singleton que mantiene los datos de la sesión activa del usuario.
+ * Patrón: Singleton thread-safe.
+ *
+ * Uso:
+ *   SesionUsuario.getInstance().setIdUsuario(id);
+ *   int uid = SesionUsuario.getInstance().getIdUsuario();
  */
 public class SesionUsuario {
 
-    private static SesionUsuario instance;
-    private Usuario usuarioActual;
+    private static volatile SesionUsuario instance;
 
-    private SesionUsuario() {
-        usuarioActual = new Usuario(2, "vendedor1", "Carlos vendedor", "carlos@bodega.com", "vendedor", true);
+    private int idUsuario;
+    private String nombre;
+    private String rol;
+    private int idBodega;
+    private String nombreBodega;
 
-    }
+    private SesionUsuario() {}
 
     public static SesionUsuario getInstance() {
         if (instance == null) {
-            instance = new SesionUsuario();
+            synchronized (SesionUsuario.class) {
+                if (instance == null) {
+                    instance = new SesionUsuario();
+                }
+            }
         }
         return instance;
     }
 
-    public Usuario getUsuarioActual() {
-        return usuarioActual;
-    }
-
-    public void setUsuarioActual(Usuario usuarioActual) {
-        this.usuarioActual = usuarioActual;
-    }
-
-    /**
-     * Verifica si el usuario actual tiene el rol especificado.
-     *
-     * @param rol Rol a verificar
-     * @return true si el usuario tiene el rol, false en caso contrario
-     */
-    public boolean tieneRol(String rol) {
-        if (usuarioActual == null) {
-            return false;
-        }
-        return usuarioActual.getRol().equals(rol);
-    }
-
-    /**
-     * Verifica si hay un usuario logueado.
-     *
-     * @return true si hay un usuario logueado, false en caso contrario
-     */
-    public boolean hayUsuarioLogueado() {
-        return usuarioActual != null;
-    }
-
-    /**
-     * Cierra la sesión del usuario actual.
-     */
+    /** Limpia todos los datos de sesión (logout) */
     public void cerrarSesion() {
-        usuarioActual = null;
+        this.idUsuario = 0;
+        this.nombre = null;
+        this.rol = null;
+        this.idBodega = 0;
+        this.nombreBodega = null;
+    }
+
+    // --- Getters y Setters ---
+    public int getIdUsuario() { return idUsuario; }
+    public void setIdUsuario(int idUsuario) { this.idUsuario = idUsuario; }
+
+    public String getNombre() { return nombre; }
+    public void setNombre(String nombre) { this.nombre = nombre; }
+
+    public String getRol() { return rol; }
+    public void setRol(String rol) { this.rol = rol; }
+
+    public int getIdBodega() { return idBodega; }
+    public void setIdBodega(int idBodega) { this.idBodega = idBodega; }
+
+    public String getNombreBodega() { return nombreBodega; }
+    public void setNombreBodega(String nombreBodega) { this.nombreBodega = nombreBodega; }
+
+    /** Verifica si hay sesión activa */
+    public boolean estaLogueado() { return idUsuario > 0; }
+
+    @Override
+    public String toString() {
+        return "SesionUsuario{id=" + idUsuario + ", nombre='" + nombre +
+               "', rol='" + rol + "', bodega=" + idBodega + "}";
     }
 }
