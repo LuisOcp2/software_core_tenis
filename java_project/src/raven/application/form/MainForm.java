@@ -50,7 +50,6 @@ import raven.application.form.other.Notificaciones;
 import raven.clases.admin.UserSession;
 import raven.application.form.LoginForm;
 import raven.application.form.admin.BodegasForm;
-import raven.application.form.comercial.Carrito;
 import raven.application.form.comercial.devolucionMainForm;
 import raven.application.form.principal.generarVentaFor1;
 import raven.application.form.productos.ColorForm;
@@ -78,9 +77,14 @@ import javax.swing.SwingUtilities;
 import raven.application.form.admin.MonitorCajasForm;
 import raven.application.form.comercial.ComprasForm;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// IMPORT - Módulo Carrito / Órdenes Web
+// ═══════════════════════════════════════════════════════════════════════════
+import raven.controlador.comercial.ModelCarritoOrdenesWeb;
+
 /**
  * Formulario principal de la aplicación.
- * 
+ *
  * MEJORA APLICADA (Principio Fail Fast):
  * - Las validaciones de caja abierta, bodega asignada y caja registrada
  * ahora se realizan ANTES de abrir el formulario de ventas (case 2).
@@ -95,9 +99,11 @@ public class MainForm extends JLayeredPane {
     private final ServiceCaja serviceCaja = new ServiceCaja();
     private final ServiceCajaMovimiento serviceCajaMovimiento = new ServiceCajaMovimiento();
 
+    // Instancia persistente del módulo Carrito (se crea una vez por sesión)
+    private ModelCarritoOrdenesWeb carritoOrdenesWebForm;
+
     public MainForm() {
         init();
-        // Agregar listener para detectar cambios de tamaño con debounce
         this.addComponentListener(new ComponentAdapter() {
             private Timer resizeTimer;
 
@@ -107,7 +113,6 @@ public class MainForm extends JLayeredPane {
                     resizeTimer.restart();
                 } else {
                     resizeTimer = new Timer(100, (ActionEvent evt) -> {
-                        // Forzar el redimensionamiento de componentes internos
                         SwingUtilities.invokeLater(() -> {
                             if (panelBody != null) {
                                 panelBody.revalidate();
@@ -185,7 +190,6 @@ public class MainForm extends JLayeredPane {
     }
 
     public void limpiarRegistroNotificacionesMostradas() {
-        // El servicio maneja su propio estado, reiniciarlo limpia el registro
         EventosTraspasosService.getInstance().detenerMonitoreo();
     }
 
@@ -208,14 +212,12 @@ public class MainForm extends JLayeredPane {
      */
     private void initMenuEvent() {
         menu.addMenuEvent((int index, int subIndex, MenuAction action) -> {
-            // Verificar si hay un usuario en sesión (excepto para logout)
             if (!UserSession.getInstance().isLoggedIn() && index != 6) {
                 action.cancel();
-                Application.logout(); // Redirigir al login si no hay sesión
+                Application.logout();
                 return;
             }
 
-            // Mapeo de las opciones del menú a sus respectivos formularios
             switch (index) {
                 case 0: { // Notificaciones
                     try {
@@ -228,9 +230,8 @@ public class MainForm extends JLayeredPane {
                 }
                     break;
 
-                case 1: { // Dashboard (primer ítem después de ~MAIN~)
+                case 1: { // Dashboard
                     try {
-                        // Dashboard accesible para todos los usuarios
                         Application.showForm(new FormDashboard());
                         setMenuHide(true);
                     } catch (Exception ex) {
@@ -240,41 +241,21 @@ public class MainForm extends JLayeredPane {
                 }
                     break;
 
-                // ═══════════════════════════════════════════════════════════════
-                // CASE 2 MODIFICADO - Validaciones de caja ANTES de abrir ventas
-                // Principio Fail Fast: Validamos todo antes de cargar el formulario
-                // ═══════════════════════════════════════════════════════════════
                 case 2: // Generar venta
                     if (UserSession.getInstance().hasPermission("generar venta")) {
-
-                        // ═══════════════════════════════════════════════════════
-                        // PASO 1: Validar bodega asignada
-                        // ═══════════════════════════════════════════════════════
                         if (!validarBodegaAsignada()) {
                             action.cancel();
                             return;
                         }
-
-                        // ═══════════════════════════════════════════════════════
-                        // PASO 2: Validar caja registrada en bodega
-                        // ═══════════════════════════════════════════════════════
                         ModelCaja cajaValidada = validarCajaRegistrada();
                         if (cajaValidada == null) {
                             action.cancel();
                             return;
                         }
-
-                        // ═══════════════════════════════════════════════════════
-                        // PASO 3: Validar caja abierta o solicitar apertura
-                        // ═══════════════════════════════════════════════════════
                         if (!validarOAbrirCaja(cajaValidada)) {
                             action.cancel();
                             return;
                         }
-
-                        // ═══════════════════════════════════════════════════════
-                        // PASO 4: Todas las validaciones OK - abrir formulario
-                        // ═══════════════════════════════════════════════════════
                         try {
                             if (generarVentaForm == null) {
                                 generarVentaForm = new generarVentaFor1();
@@ -292,8 +273,8 @@ public class MainForm extends JLayeredPane {
                     break;
 
                 case 3: // Comercial
-                    if (subIndex == 0) { // "Comercial" (padre)
-                        // No hacemos nada para el título de sección
+                    if (subIndex == 0) {
+                        // Título de sección, no hacer nada
                     } else if (subIndex == 1) { // Clientes
                         if (UserSession.getInstance().hasPermission("clientes")) {
                             Application.showForm(new ClientesForm());
@@ -331,7 +312,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 5) { // Reporte de devoluciones
+                    } else if (subIndex == 5) { // Devoluciones
                         if (UserSession.getInstance().hasPermission("devoluciones")) {
                             Application.showForm(new devolucionMainForm());
                             setMenuHide(true);
@@ -339,18 +320,34 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 6) { // Pedidos Web / carrito
+
+                    // ═══════════════════════════════════════════════════════════════
+                    // subIndex 6 — 🛒 Pedidos Web / Carrito de Órdenes
+                    // Reemplaza la clase Carrito antigua por ModelCarritoOrdenesWeb
+                    // ═══════════════════════════════════════════════════════════════
+                    } else if (subIndex == 6) { // Pedidos Web / Carrito
                         if (UserSession.getInstance().hasPermission("pedidos_web")) {
                             try {
-                                Application.showForm(new Carrito());
+                                // Obtener bodega del usuario autenticado
+                                Integer idBodega = UserSession.getInstance().getIdBodegaUsuario();
+                                int bodegaId = (idBodega != null && idBodega > 0) ? idBodega : 0;
+
+                                // Crear o reutilizar instancia del panel
+                                if (carritoOrdenesWebForm == null) {
+                                    carritoOrdenesWebForm = new ModelCarritoOrdenesWeb(bodegaId);
+                                }
+                                Application.showForm(carritoOrdenesWebForm);
                                 setMenuHide(true);
-                            } catch (SQLException ex) {
-                                Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
+                            } catch (Exception ex) {
+                                Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE,
+                                        "Error al abrir módulo Carrito/Órdenes Web", ex);
+                                mostrarErrorFormulario("Pedidos Web / Carrito");
                             }
                         } else {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
+
                     } else if (subIndex == 7) { // Cambio Talla
                         if (UserSession.getInstance().hasPermission("generar venta")) {
                             Application.showForm(new raven.application.form.comercial.FormCambioTalla());
@@ -371,10 +368,9 @@ public class MainForm extends JLayeredPane {
                     break;
 
                 case 4: // Productos
-                    // Restricción removida - cada submódulo tiene su propio check de permisos
-                    if (subIndex == 0) { // "Productos" (padre)
-                        // No hacemos nada para el título de sección
-                    } else if (subIndex == 1) { // Ver productos
+                    if (subIndex == 0) {
+                        // Título de sección
+                    } else if (subIndex == 1) {
                         if (UserSession.getInstance().hasPermission("ver_productos")) {
                             try {
                                 Application.showForm(new raven.application.form.productos.VerProductosForm());
@@ -387,7 +383,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 2) { // Gestión de productos
+                    } else if (subIndex == 2) {
                         if (UserSession.getInstance().hasPermission("gestion de productos")) {
                             Application.showForm(new GestionProductosForm());
                             setMenuHide(true);
@@ -395,7 +391,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 3) { // Inventario
+                    } else if (subIndex == 3) {
                         if (UserSession.getInstance().hasPermission("inventario")) {
                             Application.showForm(new InventarioForm());
                             setMenuHide(true);
@@ -403,7 +399,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 4) { // Marcas
+                    } else if (subIndex == 4) {
                         if (UserSession.getInstance().hasPermission("marcas")) {
                             Application.showForm(new MarcasForm());
                             setMenuHide(true);
@@ -411,7 +407,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 5) { // Categorías
+                    } else if (subIndex == 5) {
                         if (UserSession.getInstance().hasPermission("categorias")) {
                             Application.showForm(new CategoriasForm());
                             setMenuHide(true);
@@ -419,7 +415,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 6) { // Movimientos
+                    } else if (subIndex == 6) {
                         if (UserSession.getInstance().hasPermission("movimientos")) {
                             Application.showForm(new MovimientosForm());
                             setMenuHide(true);
@@ -427,7 +423,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 7) { // Rotulación
+                    } else if (subIndex == 7) {
                         if (UserSession.getInstance().hasPermission("rotulacion")) {
                             Application.showForm(new RotulacionForm());
                             setMenuHide(true);
@@ -435,7 +431,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 8) { // Traspasos
+                    } else if (subIndex == 8) {
                         if (UserSession.getInstance().hasPermission("traspasos")) {
                             Application.showForm(new traspasos());
                             setMenuHide(true);
@@ -459,7 +455,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 11) { // Promociones
+                    } else if (subIndex == 11) {
                         if (UserSession.getInstance().hasPermission("promociones")) {
                             Application.showForm(new Descuento());
                             setMenuHide(true);
@@ -467,7 +463,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 12) { // Consulta Detallada
+                    } else if (subIndex == 12) {
                         if (UserSession.getInstance().hasPermission("consulta_detallada")) {
                             Application.showForm(new ConsultaInventarioDetalladoForm());
                             setMenuHide(true);
@@ -484,52 +480,52 @@ public class MainForm extends JLayeredPane {
                         mostrarErrorPermisos();
                         break;
                     }
-                    if (subIndex == 0) { // "Reportes" (padre) - abrir panel principal
+                    if (subIndex == 0) {
                         Application.showForm(new raven.application.form.reportes.ReportesMainForm());
                         setMenuHide(true);
-                    } else if (subIndex == 1) { // Inventario
+                    } else if (subIndex == 1) {
                         if (UserSession.getInstance().hasPermission("reporte_inventario")) {
                             Application.showForm(new raven.application.form.reportes.ReporteInventarioForm());
                             setMenuHide(true);
                         } else {
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 2) { // Compras
+                    } else if (subIndex == 2) {
                         if (UserSession.getInstance().hasPermission("reporte_compras")) {
                             Application.showForm(new raven.application.form.reportes.ReporteComprasForm());
                             setMenuHide(true);
                         } else {
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 3) { // Gastos
+                    } else if (subIndex == 3) {
                         if (UserSession.getInstance().hasPermission("reporte_gastos")) {
                             Application.showForm(new raven.application.form.reportes.ReporteGastosForm());
                             setMenuHide(true);
                         } else {
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 4) { // Devoluciones
+                    } else if (subIndex == 4) {
                         if (UserSession.getInstance().hasPermission("reporte_devoluciones")) {
                             Application.showForm(new raven.application.form.reportes.ReporteDevolucionesForm());
                             setMenuHide(true);
                         } else {
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 5) { // Traspasos
+                    } else if (subIndex == 5) {
                         if (UserSession.getInstance().hasPermission("reporte_traspasos")) {
                             Application.showForm(new raven.application.form.reportes.ReporteTraspasoForm());
                             setMenuHide(true);
                         } else {
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 6) { // Clientes
+                    } else if (subIndex == 6) {
                         if (UserSession.getInstance().hasPermission("reporte_clientes")) {
                             Application.showForm(new raven.application.form.reportes.ReporteClientesForm());
                             setMenuHide(true);
                         } else {
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 7) { // Auditoría
+                    } else if (subIndex == 7) {
                         if (UserSession.getInstance().hasPermission("reporte_auditoria")) {
                             Application.showForm(new raven.application.form.reportes.ReporteAuditoriaForm());
                             setMenuHide(true);
@@ -540,9 +536,9 @@ public class MainForm extends JLayeredPane {
                     break;
 
                 case 6: // Admin
-                    if (subIndex == 0) { // "Admin" (padre)
-                        // No hacemos nada para el título de sección
-                    } else if (subIndex == 1) { // Usuarios
+                    if (subIndex == 0) {
+                        // Título de sección
+                    } else if (subIndex == 1) {
                         if (UserSession.getInstance().hasPermission("usuarios")) {
                             Application.showForm(new UsuariosForm());
                             setMenuHide(true);
@@ -550,7 +546,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 2) { // Movimientos caja / Bodegas
+                    } else if (subIndex == 2) {
                         if (UserSession.getInstance().hasPermission("bodegas")) {
                             Application.showForm(new BodegasForm());
                             setMenuHide(true);
@@ -558,8 +554,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 3) { // Cajas
-                        // Usar permiso específico de monitor si existe, o general de cajas
+                    } else if (subIndex == 3) {
                         if (UserSession.getInstance().hasPermission("monitor_cajas")
                                 || UserSession.getInstance().hasPermission("cajas")) {
                             Application.showForm(new MonitorCajasForm());
@@ -568,10 +563,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                        // } else if (subIndex == 4) { // Promociones
-                        // // Promociones moved to Commercial or handled elsewhere
-                        //
-                    } else if (subIndex == 4) { // Tipos de Gasto
+                    } else if (subIndex == 4) {
                         if (UserSession.getInstance().hasPermission("tipos_gasto")) {
                             Application.showForm(new TiposGastoForm());
                             setMenuHide(true);
@@ -579,7 +571,7 @@ public class MainForm extends JLayeredPane {
                             action.cancel();
                             mostrarErrorPermisos();
                         }
-                    } else if (subIndex == 5) { // Gestión de Permisos
+                    } else if (subIndex == 5) {
                         if (UserSession.getInstance().hasPermission("configuracion")) {
                             Application.showForm(new GestionPermisosForm());
                             setMenuHide(true);
@@ -591,8 +583,8 @@ public class MainForm extends JLayeredPane {
                     break;
 
                 case 7: // Logout
-                    UserSession.getInstance().logout(); // Limpiamos la sesión
-                    Application.logout(); // Cerramos la aplicación
+                    UserSession.getInstance().logout();
+                    Application.logout();
                     break;
 
                 default:
@@ -602,9 +594,6 @@ public class MainForm extends JLayeredPane {
         });
     }
 
-    /**
-     * Muestra mensaje de error por falta de permisos
-     */
     private void mostrarErrorPermisos() {
         JOptionPane.showMessageDialog(this,
                 "No tiene permisos para acceder a esta función",
@@ -612,11 +601,6 @@ public class MainForm extends JLayeredPane {
                 JOptionPane.WARNING_MESSAGE);
     }
 
-    /**
-     * Muestra mensaje de error al cargar un formulario
-     * 
-     * @param nombreForm Nombre del formulario que falló
-     */
     private void mostrarErrorFormulario(String nombreForm) {
         JOptionPane.showMessageDialog(this,
                 "Error al cargar el formulario: " + nombreForm,
@@ -625,218 +609,112 @@ public class MainForm extends JLayeredPane {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // NUEVOS MÉTODOS - Validación de caja/bodega (Principio Fail Fast)
+    // VALIDACIONES DE CAJA/BODEGA
     // ═══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Valida que el usuario tenga una bodega asignada.
-     * 
-     * @return true si el usuario tiene bodega asignada, false en caso contrario
-     */
     private boolean validarBodegaAsignada() {
         UserSession session = UserSession.getInstance();
-
-        // Validación de sesión activa
         if (session.getCurrentUser() == null) {
             JOptionPane.showMessageDialog(this,
                     "No hay usuario autenticado. Vuelva a iniciar sesión.",
-                    "Sesión requerida",
-                    JOptionPane.ERROR_MESSAGE);
+                    "Sesión requerida", JOptionPane.ERROR_MESSAGE);
             return false;
         }
-
-        // Validación de bodega asignada
         Integer idBodegaUsuario = session.getIdBodegaUsuario();
         if (idBodegaUsuario == null || idBodegaUsuario <= 0) {
             JOptionPane.showMessageDialog(this,
-                    "WARNING  Su usuario no tiene una bodega asignada.\n\n"
-                            + "Contacte al administrador para asignar bodega y caja.",
-                    "Configuración incompleta",
-                    JOptionPane.WARNING_MESSAGE);
+                    "Su usuario no tiene una bodega asignada.\n\nContacte al administrador.",
+                    "Configuración incompleta", JOptionPane.WARNING_MESSAGE);
             return false;
         }
-
-        System.out.println("SUCCESS  Bodega validada: " + idBodegaUsuario);
         return true;
     }
 
-    /**
-     * Valida que la bodega del usuario tenga una caja registrada.
-     * 
-     * @return ModelCaja si existe una caja válida, null en caso contrario
-     */
     private ModelCaja validarCajaRegistrada() {
         try {
             Integer idBodegaUsuario = UserSession.getInstance().getIdBodegaUsuario();
-
-            // Obtener caja asociada a la bodega
             ModelCaja cajaAsociada = serviceCaja.obtenerCajaPorBodega(idBodegaUsuario);
-
-            // Validar que existe caja
             if (cajaAsociada == null) {
                 JOptionPane.showMessageDialog(this,
-                        "Su bodega no tiene una caja registrada.\n\n"
-                                + "Contacte al administrador para crear una caja.",
-                        "Caja no configurada",
-                        JOptionPane.WARNING_MESSAGE);
+                        "Su bodega no tiene una caja registrada.\n\nContacte al administrador.",
+                        "Caja no configurada", JOptionPane.WARNING_MESSAGE);
                 return null;
             }
-
-            // Validar ID de caja válido
             if (cajaAsociada.getIdCaja() == null || cajaAsociada.getIdCaja() <= 0) {
                 JOptionPane.showMessageDialog(this,
-                        "ERROR  La caja tiene un ID inválido.\n\n"
-                                + "Contacte al administrador del sistema.",
-                        "Error de sistema",
-                        JOptionPane.ERROR_MESSAGE);
+                        "La caja tiene un ID inválido.\n\nContacte al administrador.",
+                        "Error de sistema", JOptionPane.ERROR_MESSAGE);
                 return null;
             }
-
-            System.out.println("SUCCESS  Caja validada: " + cajaAsociada.getIdCaja());
             return cajaAsociada;
-
         } catch (SQLException ex) {
-            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE,
-                    "Error al validar caja registrada", ex);
+            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, "Error al validar caja registrada", ex);
             JOptionPane.showMessageDialog(this,
-                    "ERROR  Error de base de datos al obtener la caja:\n" + ex.getMessage(),
-                    "BD - Caja",
-                    JOptionPane.ERROR_MESSAGE);
+                    "Error de base de datos al obtener la caja:\n" + ex.getMessage(),
+                    "BD - Caja", JOptionPane.ERROR_MESSAGE);
             return null;
         }
     }
 
-    /**
-     * Valida si hay una caja abierta o solicita apertura al usuario.
-     * 
-     * @param caja ModelCaja ya validada
-     * @return true si la caja está abierta (o se abrió exitosamente), false en caso
-     *         contrario
-     */
     private boolean validarOAbrirCaja(ModelCaja caja) {
         try {
             int idUsuarioActual = UserSession.getInstance().getCurrentUser().getIdUsuario();
             int idCajaActiva = caja.getIdCaja();
-
-            // Buscar movimiento abierto (caja abierta)
             ModelCajaMovimiento movimientoAbierto = serviceCajaMovimiento
                     .obtenerMovimientoAbierto(idCajaActiva, idUsuarioActual);
-
             if (movimientoAbierto != null) {
-                // ═══════════════════════════════════════════════════════════════
-                // CASO 1: HAY CAJA ABIERTA - Actualizar sesión y continuar
-                // ═══════════════════════════════════════════════════════════════
-                System.out.println("SUCCESS  Caja ya abierta - Movimiento #" + movimientoAbierto.getIdMovimiento());
-
-                // Actualizar sesión con información de caja
-                UserSession.getInstance().asociarCaja(
-                        idCajaActiva,
-                        movimientoAbierto.getIdMovimiento());
-
+                UserSession.getInstance().asociarCaja(idCajaActiva, movimientoAbierto.getIdMovimiento());
                 return true;
-
             } else {
-                // ═══════════════════════════════════════════════════════════════
-                // CASO 2: NO HAY CAJA ABIERTA - Preguntar al usuario
-                // ═══════════════════════════════════════════════════════════════
-                System.out.println("WARNING  No hay caja abierta - Preguntando al usuario...");
-
                 return preguntarYAbrirCaja(caja, idUsuarioActual);
             }
-
         } catch (SQLException ex) {
-            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE,
-                    "Error al validar estado de caja", ex);
+            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, "Error al validar estado de caja", ex);
             JOptionPane.showMessageDialog(this,
                     "Error al verificar el estado de la caja:\n" + ex.getMessage(),
-                    "Error",
-                    JOptionPane.ERROR_MESSAGE);
+                    "Error", JOptionPane.ERROR_MESSAGE);
             return false;
         }
     }
 
-    /**
-     * Pregunta al usuario si desea abrir una caja y procesa la respuesta.
-     * 
-     * @param caja      ModelCaja a abrir
-     * @param idUsuario ID del usuario actual
-     * @return true si se abrió la caja exitosamente, false si canceló o hubo error
-     */
     private boolean preguntarYAbrirCaja(ModelCaja caja, int idUsuario) {
-        // Construir mensaje informativo
         String mensaje = String.format(
                 "No hay una caja abierta para su sesión.\n\n"
                         + " Usuario: %s\n"
                         + " Caja ID: %d\n\n"
-                        + "¿Desea abrir una caja ahora para comenzar a operar?",
-                UserSession.getInstance().getCurrentUser().getNombre(),
-                caja.getIdCaja());
-
-        // Mostrar diálogo de confirmación
-        int opcion = JOptionPane.showConfirmDialog(
-                this,
-                mensaje,
-                "Abrir Caja",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.QUESTION_MESSAGE);
-
+                        + "¿Desea abrir una caja ahora?",
+                UserSession.getInstance().getCurrentUser().getNombre(), caja.getIdCaja());
+        int opcion = JOptionPane.showConfirmDialog(this, mensaje, "Abrir Caja",
+                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
         if (opcion == JOptionPane.YES_OPTION) {
-            // Usuario quiere abrir caja - Mostrar diálogo de apertura
             return mostrarDialogoAperturaCaja(caja, idUsuario);
-        } else {
-            // Usuario canceló
-            System.out.println("ERROR  Usuario canceló apertura de caja");
-            return false;
         }
+        return false;
     }
 
-    /**
-     * Muestra el diálogo de apertura de caja y procesa el resultado.
-     * 
-     * @param caja      ModelCaja a abrir
-     * @param idUsuario ID del usuario actual
-     * @return true si se abrió exitosamente, false en caso contrario
-     */
     private boolean mostrarDialogoAperturaCaja(ModelCaja caja, int idUsuario) {
-        // Variable para capturar el resultado del callback
         final boolean[] resultado = { false };
-
-        // Obtener el frame padre para el diálogo
         JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
-        // Crear diálogo de apertura con callback
-        AperturaCajaDialog dialogo = new AperturaCajaDialog(
-                frame,
-                caja,
-                idUsuario,
+        AperturaCajaDialog dialogo = new AperturaCajaDialog(frame, caja, idUsuario,
                 UserSession.getInstance().getCurrentUser().getNombre(),
                 new AperturaCajaDialog.AperturaCajaCallback() {
                     @Override
                     public void onAperturaExitosa(ModelCajaMovimiento movimiento) {
-                        System.out.println(
-                                "SUCCESS  Caja abierta exitosamente - Movimiento #" + movimiento.getIdMovimiento());
-
-                        // Actualizar sesión con información de caja
-                        UserSession.getInstance().asociarCaja(
-                                caja.getIdCaja(),
-                                movimiento.getIdMovimiento());
-
+                        UserSession.getInstance().asociarCaja(caja.getIdCaja(), movimiento.getIdMovimiento());
                         resultado[0] = true;
                     }
 
                     @Override
                     public void onAperturaCancelada() {
-                        System.out.println("ERROR  Apertura de caja cancelada");
                         resultado[0] = false;
                     }
                 });
-        // Mostrar diálogo (modal - bloquea hasta cerrar)
         dialogo.setVisible(true);
-
         return resultado[0];
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MÉTODOS DE UI - Sin cambios
+    // MÉTODOS DE UI
     // ═══════════════════════════════════════════════════════════════════════════
 
     private void setMenuFull(boolean full) {
@@ -902,16 +780,15 @@ public class MainForm extends JLayeredPane {
     }
 
     /**
-     * Limpia el registro de notificaciones mostradas
-     * Útil al cambiar de sesión o bodega para evitar confusión
+     * Limpia el formulario de venta persistente al cerrar sesión.
      */
-    // public void limpiarRegistroNotificacionesMostradas() {
-    // notificacionesMostradas.clear();
-    // }
-
     public void limparFormularioVenta() {
         if (generarVentaForm != null) {
             generarVentaForm = null;
+        }
+        // También limpiar instancia del carrito para que se recree con la bodega correcta
+        if (carritoOrdenesWebForm != null) {
+            carritoOrdenesWebForm = null;
         }
     }
 
