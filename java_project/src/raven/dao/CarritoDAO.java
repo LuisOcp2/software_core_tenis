@@ -16,6 +16,9 @@ import raven.modelos.OrdenReservaDetalle;
  * DAO para el módulo de Carrito de compras web (Órdenes Web).
  *
  * Columnas confirmadas contra information_schema.COLUMNS en vivo (soft_xtreme):
+ *   carrito                 → id_carrito, id_usuario, session_id, id_producto,
+ *                             id_variante, id_bodega, cantidad, precio_unitario,
+ *                             fecha_agregado, fecha_actualizado
  *   ordenes_reserva         → id_orden, id_usuario, id_bodega, fecha_creacion,
  *                             fecha_vencimiento, fecha_retirado, fecha_pagado,
  *                             fecha_finalizado, metodo_pago, estado, ...
@@ -31,6 +34,21 @@ import raven.modelos.OrdenReservaDetalle;
  *                             precio_venta, precio_compra
  *   tallas                  → id_talla, numero
  *   colores                 → id_color, nombre
+ *
+ * NOTA: Si la tabla 'carrito' aún no existe en la BD, ejecutar:
+ *   CREATE TABLE IF NOT EXISTS carrito (
+ *     id_carrito        INT AUTO_INCREMENT PRIMARY KEY,
+ *     id_usuario        INT NOT NULL,
+ *     session_id        VARCHAR(128),
+ *     id_producto       INT NOT NULL,
+ *     id_variante       INT NOT NULL,
+ *     id_bodega         INT NOT NULL,
+ *     cantidad          INT NOT NULL DEFAULT 1,
+ *     precio_unitario   DECIMAL(12,2) NOT NULL,
+ *     fecha_agregado    DATETIME DEFAULT CURRENT_TIMESTAMP,
+ *     fecha_actualizado DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ *     UNIQUE KEY uk_usuario_variante_bodega (id_usuario, id_variante, id_bodega)
+ *   );
  */
 public class CarritoDAO {
 
@@ -52,24 +70,24 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             String sql =
-                "SELECT c.idcarrito, c.usuarioid, c.sessionid, c.idproducto, " +
-                "       c.idvariante, c.idbodega, c.cantidad, c.preciounitario, " +
-                "       c.fechaagregado, c.fechaactualizado, " +
+                "SELECT c.id_carrito, c.id_usuario, c.session_id, c.id_producto, " +
+                "       c.id_variante, c.id_bodega, c.cantidad, c.precio_unitario, " +
+                "       c.fecha_agregado, c.fecha_actualizado, " +
                 "       p.nombre AS nombre_producto, p.codigo_modelo, " +
                 "       t.numero AS talla, col.nombre AS color, " +
                 "       b.nombre AS nombre_bodega, " +
                 "       COALESCE(ib.Stock_par, 0) AS stock_disponible, " +
                 "       pv.sku " +
                 "FROM carrito c " +
-                "LEFT JOIN productos p              ON c.idproducto = p.id_producto " +
-                "LEFT JOIN producto_variantes pv    ON c.idvariante = pv.id_variante " +
-                "LEFT JOIN tallas t                 ON pv.id_talla  = t.id_talla " +
-                "LEFT JOIN colores col              ON pv.id_color  = col.id_color " +
-                "LEFT JOIN bodegas b                ON c.idbodega   = b.id_bodega " +
-                "LEFT JOIN inventario_bodega ib     ON ib.id_variante = c.idvariante " +
-                "    AND ib.id_bodega = c.idbodega AND ib.activo = 1 " +
-                "WHERE c.usuarioid = ? " +
-                "ORDER BY c.fechaagregado DESC";
+                "LEFT JOIN productos p              ON c.id_producto = p.id_producto " +
+                "LEFT JOIN producto_variantes pv    ON c.id_variante = pv.id_variante " +
+                "LEFT JOIN tallas t                 ON pv.id_talla   = t.id_talla " +
+                "LEFT JOIN colores col              ON pv.id_color   = col.id_color " +
+                "LEFT JOIN bodegas b                ON c.id_bodega   = b.id_bodega " +
+                "LEFT JOIN inventario_bodega ib     ON ib.id_variante = c.id_variante " +
+                "    AND ib.id_bodega = c.id_bodega AND ib.activo = 1 " +
+                "WHERE c.id_usuario = ? " +
+                "ORDER BY c.fecha_agregado DESC";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idUsuario);
             rs = stmt.executeQuery();
@@ -89,12 +107,12 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             String sql =
-                "INSERT INTO carrito (usuarioid, idproducto, idvariante, idbodega, cantidad, preciounitario) " +
+                "INSERT INTO carrito (id_usuario, id_producto, id_variante, id_bodega, cantidad, precio_unitario) " +
                 "VALUES (?, ?, ?, ?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE " +
                 "  cantidad = cantidad + VALUES(cantidad), " +
-                "  preciounitario = VALUES(preciounitario), " +
-                "  fechaactualizado = CURRENT_TIMESTAMP";
+                "  precio_unitario = VALUES(precio_unitario), " +
+                "  fecha_actualizado = CURRENT_TIMESTAMP";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idUsuario);
             stmt.setInt(2, idProducto);
@@ -113,8 +131,8 @@ public class CarritoDAO {
         PreparedStatement stmt = null;
         try {
             con = db.createConnection();
-            String sql = "UPDATE carrito SET cantidad = ?, fechaactualizado = CURRENT_TIMESTAMP " +
-                         "WHERE idcarrito = ?";
+            String sql = "UPDATE carrito SET cantidad = ?, fecha_actualizado = CURRENT_TIMESTAMP " +
+                         "WHERE id_carrito = ?";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, nuevaCantidad);
             stmt.setInt(2, idCarrito);
@@ -129,7 +147,7 @@ public class CarritoDAO {
         PreparedStatement stmt = null;
         try {
             con = db.createConnection();
-            stmt = con.prepareStatement("DELETE FROM carrito WHERE idcarrito = ?");
+            stmt = con.prepareStatement("DELETE FROM carrito WHERE id_carrito = ?");
             stmt.setInt(1, idCarrito);
             return stmt.executeUpdate() > 0;
         } finally {
@@ -142,7 +160,7 @@ public class CarritoDAO {
         PreparedStatement stmt = null;
         try {
             con = db.createConnection();
-            stmt = con.prepareStatement("DELETE FROM carrito WHERE usuarioid = ?");
+            stmt = con.prepareStatement("DELETE FROM carrito WHERE id_usuario = ?");
             stmt.setInt(1, idUsuario);
             return stmt.executeUpdate() >= 0;
         } finally {
@@ -157,7 +175,7 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             stmt = con.prepareStatement(
-                "SELECT COUNT(*) AS total FROM carrito WHERE usuarioid = ?");
+                "SELECT COUNT(*) AS total FROM carrito WHERE id_usuario = ?");
             stmt.setInt(1, idUsuario);
             rs = stmt.executeQuery();
             return rs.next() ? rs.getInt("total") : 0;
@@ -173,8 +191,8 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             String sql =
-                "SELECT COALESCE(SUM(c.cantidad * c.preciounitario), 0) AS total " +
-                "FROM carrito c WHERE c.usuarioid = ?";
+                "SELECT COALESCE(SUM(c.cantidad * c.precio_unitario), 0) AS total " +
+                "FROM carrito c WHERE c.id_usuario = ?";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idUsuario);
             rs = stmt.executeQuery();
@@ -192,18 +210,18 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             String sql =
-                "SELECT c.idcarrito, c.idproducto, c.idvariante, c.idbodega, c.cantidad, " +
-                "       c.preciounitario, p.nombre AS nombre_producto, " +
+                "SELECT c.id_carrito, c.id_producto, c.id_variante, c.id_bodega, c.cantidad, " +
+                "       c.precio_unitario, p.nombre AS nombre_producto, " +
                 "       t.numero AS talla, col.nombre AS color, " +
                 "       COALESCE(ib.Stock_par, 0) AS stock_disponible " +
                 "FROM carrito c " +
-                "LEFT JOIN productos p              ON c.idproducto  = p.id_producto " +
-                "LEFT JOIN producto_variantes pv    ON c.idvariante  = pv.id_variante " +
-                "LEFT JOIN tallas t                 ON pv.id_talla   = t.id_talla " +
-                "LEFT JOIN colores col              ON pv.id_color   = col.id_color " +
-                "LEFT JOIN inventario_bodega ib     ON ib.id_variante = c.idvariante " +
-                "    AND ib.id_bodega = c.idbodega AND ib.activo = 1 " +
-                "WHERE c.usuarioid = ? " +
+                "LEFT JOIN productos p              ON c.id_producto  = p.id_producto " +
+                "LEFT JOIN producto_variantes pv    ON c.id_variante  = pv.id_variante " +
+                "LEFT JOIN tallas t                 ON pv.id_talla    = t.id_talla " +
+                "LEFT JOIN colores col              ON pv.id_color    = col.id_color " +
+                "LEFT JOIN inventario_bodega ib     ON ib.id_variante = c.id_variante " +
+                "    AND ib.id_bodega = c.id_bodega AND ib.activo = 1 " +
+                "WHERE c.id_usuario = ? " +
                 "  AND COALESCE(ib.Stock_par, 0) < c.cantidad";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idUsuario);
@@ -282,7 +300,7 @@ public class CarritoDAO {
             }
             stmtDetalle.executeBatch();
 
-            stmtCarrito = con.prepareStatement("DELETE FROM carrito WHERE usuarioid = ?");
+            stmtCarrito = con.prepareStatement("DELETE FROM carrito WHERE id_usuario = ?");
             stmtCarrito.setInt(1, idUsuario);
             stmtCarrito.executeUpdate();
 
@@ -582,19 +600,19 @@ public class CarritoDAO {
 
     private CarritoItem mapCarritoItem(ResultSet rs) throws SQLException {
         CarritoItem item = new CarritoItem();
-        try { item.setIdCarrito(rs.getInt("idcarrito")); }           catch (Exception e) {}
-        try { item.setIdProducto(rs.getInt("idproducto")); }         catch (Exception e) {}
-        try { item.setIdVariante(rs.getInt("idvariante")); }         catch (Exception e) {}
-        try { item.setIdBodega(rs.getInt("idbodega")); }             catch (Exception e) {}
-        try { item.setCantidad(rs.getInt("cantidad")); }             catch (Exception e) {}
-        try { item.setPrecioUnitario(rs.getDouble("preciounitario")); } catch (Exception e) {}
+        try { item.setIdCarrito(rs.getInt("id_carrito")); }              catch (Exception e) {}
+        try { item.setIdProducto(rs.getInt("id_producto")); }            catch (Exception e) {}
+        try { item.setIdVariante(rs.getInt("id_variante")); }            catch (Exception e) {}
+        try { item.setIdBodega(rs.getInt("id_bodega")); }                catch (Exception e) {}
+        try { item.setCantidad(rs.getInt("cantidad")); }                 catch (Exception e) {}
+        try { item.setPrecioUnitario(rs.getDouble("precio_unitario")); } catch (Exception e) {}
         try { item.setNombreProducto(rs.getString("nombre_producto")); } catch (Exception e) {}
-        try { item.setCodigoModelo(rs.getString("codigo_modelo")); } catch (Exception e) {}
-        try { item.setTalla(rs.getString("talla")); }                catch (Exception e) {}
-        try { item.setColor(rs.getString("color")); }                catch (Exception e) {}
-        try { item.setNombreBodega(rs.getString("nombre_bodega")); } catch (Exception e) {}
-        try { item.setStockDisponible(rs.getInt("stock_disponible")); } catch (Exception e) {}
-        try { item.setSku(rs.getString("sku")); }                    catch (Exception e) {}
+        try { item.setCodigoModelo(rs.getString("codigo_modelo")); }     catch (Exception e) {}
+        try { item.setTalla(rs.getString("talla")); }                    catch (Exception e) {}
+        try { item.setColor(rs.getString("color")); }                    catch (Exception e) {}
+        try { item.setNombreBodega(rs.getString("nombre_bodega")); }     catch (Exception e) {}
+        try { item.setStockDisponible(rs.getInt("stock_disponible")); }  catch (Exception e) {}
+        try { item.setSku(rs.getString("sku")); }                        catch (Exception e) {}
         return item;
     }
 
@@ -605,18 +623,18 @@ public class CarritoDAO {
         orden.setIdBodega(rs.getInt("id_bodega"));
         orden.setFechaCreacion(rs.getTimestamp("fecha_creacion"));
         orden.setEstado(rs.getString("estado"));
-        try { orden.setFechaRetirado(rs.getTimestamp("fecha_retirado")); }   catch (Exception e) {}
-        try { orden.setFechaPagado(rs.getTimestamp("fecha_pagado")); }       catch (Exception e) {}
+        try { orden.setFechaRetirado(rs.getTimestamp("fecha_retirado")); }     catch (Exception e) {}
+        try { orden.setFechaPagado(rs.getTimestamp("fecha_pagado")); }         catch (Exception e) {}
         try { orden.setFechaFinalizado(rs.getTimestamp("fecha_finalizado")); } catch (Exception e) {}
         orden.setNombreUsuario(rs.getString("nombre_usuario"));
         orden.setNombreBodega(rs.getString("nombre_bodega"));
         try { orden.setCantidadProductos(rs.getInt("cantidad_productos")); } catch (Exception e) {}
-        try { orden.setSubtotal(rs.getDouble("subtotal")); }     catch (Exception e) {}
-        try { orden.setImpuestos(rs.getDouble("impuestos")); }   catch (Exception e) {}
-        try { orden.setTotal(rs.getDouble("total")); }           catch (Exception e) {}
-        try { orden.setMetodoPago(rs.getString("metodo_pago")); } catch (Exception e) {}
-        try { orden.setDireccion(rs.getString("direccion")); }   catch (Exception e) {}
-        try { orden.setCiudad(rs.getString("ciudad")); }         catch (Exception e) {}
+        try { orden.setSubtotal(rs.getDouble("subtotal")); }       catch (Exception e) {}
+        try { orden.setImpuestos(rs.getDouble("impuestos")); }     catch (Exception e) {}
+        try { orden.setTotal(rs.getDouble("total")); }             catch (Exception e) {}
+        try { orden.setMetodoPago(rs.getString("metodo_pago")); }  catch (Exception e) {}
+        try { orden.setDireccion(rs.getString("direccion")); }     catch (Exception e) {}
+        try { orden.setCiudad(rs.getString("ciudad")); }           catch (Exception e) {}
         try { orden.setDepartamento(rs.getString("departamento")); } catch (Exception e) {}
         return orden;
     }
