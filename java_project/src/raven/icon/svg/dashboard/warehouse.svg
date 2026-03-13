@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Bodega">
+  <title>Bodega</title>
+  <path d="M3 9l9-6 9 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5 10v11h14V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M9 21v-8h6v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+</svg>

@@ -1,8 +1,36 @@
-# GlobalTennis
+# Software Core Tenis 🎾
 
-GlobalTennis es una aplicación de gestión de ventas y control de inventario para una tienda de artículos de tenis. Este proyecto está desarrollado en **Java** y utiliza herramientas como **JasperReports** para la generación de reportes y **MySQL** para la gestión de datos.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-8+-orange.svg)](https://www.oracle.com/java/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.0+-blue.svg)](https://flutter.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-14+-green.svg)](https://nodejs.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0+-blue.svg)](https://www.mysql.com/)
 
-![Logo GlobalTennis](src/raven/icon/png/logo.png)
+Sistema integral de gestión de inventario y ventas para tiendas de artículos de tenis, desarrollado con arquitectura multiplataforma.
+
+## 🚀 Descripción del Proyecto
+
+Software Core Tenis es una solución completa que combina una aplicación desktop en Java, una aplicación móvil en Flutter y una API REST en Node.js para ofrecer una gestión eficiente de inventario, ventas y operaciones comerciales.
+
+## 📱 Arquitectura del Sistema
+
+El proyecto está organizado en tres componentes principales:
+
+### 🖥️ **java_project/** - Aplicación Desktop
+- **Tecnología**: Java 8+ con Swing y FlatLaf
+- **Funcionalidades**: Gestión completa de inventario, ventas, reportes
+- **Base de Datos**: MySQL 8.0+
+- **Reportes**: JasperReports
+
+### 📱 **android_project/inventory_app/** - Aplicación Móvil
+- **Tecnología**: Flutter 3.0+
+- **Plataformas**: Android (iOS en desarrollo)
+- **Funcionalidades**: Consulta de inventario, gestión móvil, sincronización
+
+### 🔧 **android_project/inventory_api/** - API REST
+- **Tecnología**: Node.js + Express
+- **Funcionalidades**: Servicio para la aplicación móvil
+- **Autenticación**: JWT
 
 ## Características Principales
 
@@ -91,26 +119,32 @@ GlobalTennis es una aplicación de gestión de ventas y control de inventario pa
      ant jar
      ```
 
-## Estructura del Proyecto
+## 🏗️ Estructura del Proyecto
 
-```
-GlobalTennis/
-├── build/                  # Archivos compilados
-├── Fonts/                  # Fuentes utilizadas en la aplicación
-├── lib/                    # Bibliotecas y dependencias
-├── nbproject/              # Configuración de NetBeans
-├── SQL/                    # Scripts SQL para la base de datos
-└── src/                    # Código fuente
-    └── raven/
-        ├── application/    # Formularios y pantallas principales
-        ├── clases/         # Lógica de negocio
-        ├── componentes/    # Componentes personalizados
-        ├── controlador/    # Controladores y modelos
-        ├── icon/           # Iconos y recursos gráficos
-        ├── menu/           # Componentes del menú
-        ├── reportes/       # Plantillas de reportes
-        ├── theme/          # Configuración de temas
-        └── utils/          # Utilidades generales
+```text
+software_core_tenis/
+├── 📁 java_project/                 # Aplicación Desktop Java
+│   ├── src/raven/                   # Código fuente principal
+│   ├── lib/                        # Dependencias Java
+│   ├── nbproject/                  # Configuración NetBeans
+│   ├── build.xml                   # Script de构建 Ant
+│   └── README.md                   # Documentación específica
+├── 📁 android_project/              # Proyectos Móviles
+│   ├── inventory_app/              # Aplicación Flutter
+│   │   ├── lib/                    # Código Dart
+│   │   ├── android/                 # Configuración Android
+│   │   └── pubspec.yaml            # Dependencias Flutter
+│   ├── inventory_api/              # API Node.js
+│   │   ├── server.js               # Servidor principal
+│   │   ├── package.json            # Dependencias Node.js
+│   │   └── node_modules/           # Módulos instalados
+│   └── README.md                   # Documentación móvil
+├── 📁 SQL/                          # Scripts de base de datos
+├── 📁 vista_nueva/                  # Interfaces web adicionales
+├── 📁 updates/                      # Actualizaciones SQL
+├── .gitignore                      # Archivos ignorados por Git
+├── README.md                       # Este archivo
+└── README_SEPARACION.md            # Documentación de separación
 ```
 
 ## Uso de la Aplicación

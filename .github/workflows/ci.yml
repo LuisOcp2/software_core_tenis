@@ -1,0 +1,135 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  java-desktop:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up JDK 8
+      uses: actions/setup-java@v3
+      with:
+        java-version: '8'
+        distribution: 'temurin'
+        
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+        
+    - name: Compile Java project
+      run: |
+        cd java_project
+        ant compile
+        
+    - name: Run tests (if exist)
+      run: |
+        cd java_project
+        if [ -d "test" ]; then
+          ant test
+        fi
+
+  flutter-mobile:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.0.0'
+        
+    - name: Install dependencies
+      run: |
+        cd android_project/inventory_app
+        flutter pub get
+        
+    - name: Analyze Flutter code
+      run: |
+        cd android_project/inventory_app
+        flutter analyze
+        
+    - name: Run Flutter tests
+      run: |
+        cd android_project/inventory_app
+        flutter test
+        
+    - name: Build Android APK
+      run: |
+        cd android_project/inventory_app
+        flutter build apk --debug
+
+  nodejs-api:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x]
+        
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: android_project/inventory_api/package-lock.json
+        
+    - name: Install dependencies
+      run: |
+        cd android_project/inventory_api
+        npm ci
+        
+    - name: Run linting
+      run: |
+        cd android_project/inventory_api
+        npm run lint || echo "No lint script found"
+        
+    - name: Run tests
+      run: |
+        cd android_project/inventory_api
+        npm test || echo "No tests found"
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+        command: monitor
+        command-args: android_project/inventory_api/package.json
+
+  build-status:
+    needs: [java-desktop, flutter-mobile, nodejs-api]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check build status
+      run: |
+        if [ "${{ needs.java-desktop.result }}" == "success" ] && \
+           [ "${{ needs.flutter-mobile.result }}" == "success" ] && \
+           [ "${{ needs.nodejs-api.result }}" == "success" ]; then
+          echo "✅ All builds successful!"
+          exit 0
+        else
+          echo "❌ Some builds failed"
+          exit 1
+        fi

@@ -1,0 +1,357 @@
+<!-- Created with Jaspersoft Studio version 7.0.3.final using JasperReports Library version 7.0.3-41034ca841d452f3305ba55b9042260aaa1ab5dd  -->
+<jasperReport name="reporteVentas" language="java" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="13acf49e-4913-4d1b-bccc-113817ad15d1">
+	<property name="com.jaspersoft.studio.data.sql.tables" value=""/>
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="CONEXION REMOTE XTREME"/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w1" value="350"/>
+	<property name="com.jaspersoft.studio.data.sql.SQLQueryDesigner.sash.w2" value="639"/>
+	<style name="Title" forecolor="#FFFFFF" fontName="Times New Roman" fontSize="50.0" bold="false"/>
+	<style name="SubTitle" forecolor="#CCCCCC" fontName="Times New Roman" fontSize="18.0" bold="false"/>
+	<style name="Column header" forecolor="#666666" fontName="Times New Roman" fontSize="14.0" bold="true"/>
+	<style name="Detail" mode="Transparent" fontName="Times New Roman"/>
+	<style name="Row" mode="Transparent" fontName="Times New Roman" pdfFontName="Times-Roman">
+		<conditionalStyle mode="Opaque" backcolor="#F0EFEF">
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2 == 0]]></conditionExpression>
+		</conditionalStyle>
+	</style>
+	<parameter name="fechaInicio" class="java.util.Date"/>
+	<parameter name="fechaFin" class="java.util.Date"/>
+	<parameter name="idCliente" class="java.lang.Integer"/>
+	<parameter name="estado" class="java.lang.String"/>
+	<parameter name="titulo" class="java.lang.String"/>
+	<parameter name="filtrosDescripcion" class="java.lang.String"/>
+	<parameter name="bodega" class="java.lang.String"/>
+	<query language="SQL"><![CDATA[SELECT
+    v.id_venta,
+    v.id_cliente,
+    c.nombre AS nombre_cliente,
+    v.id_usuario,
+    u.nombre AS nombre_usuario,
+    b.nombre AS nombre_bodega,  -- NUEVO: Nombre de la bodega
+    v.fecha_venta,
+    v.subtotal,
+    v.descuento,
+    v.iva,
+    v.total,
+    v.estado,
+    v.tipo_pago,
+    v.observaciones,
+
+    /* Estadísticas generales */
+    (SELECT COALESCE(SUM(v2.total), 0)
+     FROM soft_xtreme.ventas v2
+     JOIN soft_xtreme.usuarios u2 ON v2.id_usuario = u2.id_usuario
+     WHERE ($P{fechaInicio} IS NULL OR v2.fecha_venta >= $P{fechaInicio})
+       AND ($P{fechaFin} IS NULL OR v2.fecha_venta <= $P{fechaFin})
+       AND ($P{idCliente} IS NULL OR v2.id_cliente = $P{idCliente})
+       AND ($P{estado} IS NULL OR v2.estado = $P{estado})
+       AND ($P{bodega} IS NULL OR u2.id_bodega = $P{bodega})
+       AND v2.estado IN ('completada', 'pendiente')) AS ventas_totales,
+
+    (SELECT COUNT(*)
+     FROM soft_xtreme.ventas v2
+     JOIN soft_xtreme.usuarios u2 ON v2.id_usuario = u2.id_usuario
+     WHERE ($P{fechaInicio} IS NULL OR v2.fecha_venta >= $P{fechaInicio})
+       AND ($P{fechaFin} IS NULL OR v2.fecha_venta <= $P{fechaFin})
+       AND ($P{idCliente} IS NULL OR v2.id_cliente = $P{idCliente})
+       AND ($P{estado} IS NULL OR v2.estado = $P{estado})
+       AND ($P{bodega} IS NULL OR u2.id_bodega = $P{bodega})
+       AND v2.estado IN ('completada', 'pendiente')) AS cantidad_ventas,
+
+    /* Subconsulta para productos vendidos usando venta_detalles */
+    (SELECT COALESCE(SUM(vd.cantidad), 0)
+     FROM soft_xtreme.venta_detalles vd
+     JOIN soft_xtreme.ventas v2 ON vd.id_venta = v2.id_venta
+     JOIN soft_xtreme.usuarios u2 ON v2.id_usuario = u2.id_usuario
+     WHERE ($P{fechaInicio} IS NULL OR v2.fecha_venta >= $P{fechaInicio})
+       AND ($P{fechaFin} IS NULL OR v2.fecha_venta <= $P{fechaFin})
+       AND ($P{idCliente} IS NULL OR v2.id_cliente = $P{idCliente})
+       AND ($P{estado} IS NULL OR v2.estado = $P{estado})
+       AND ($P{bodega} IS NULL OR u2.id_bodega = $P{bodega})
+       AND v2.estado IN ('completada', 'pendiente')) AS productos_vendidos
+
+FROM
+    soft_xtreme.ventas v
+LEFT JOIN
+    soft_xtreme.clientes c ON v.id_cliente = c.id_cliente
+LEFT JOIN
+    soft_xtreme.usuarios u ON v.id_usuario = u.id_usuario
+LEFT JOIN
+    soft_xtreme.bodegas b ON u.id_bodega = b.id_bodega  -- NUEVO: JOIN con tabla bodegas
+WHERE
+    ($P{fechaInicio} IS NULL OR v.fecha_venta >= $P{fechaInicio})
+AND
+    ($P{fechaFin} IS NULL OR v.fecha_venta <= $P{fechaFin})
+AND
+    ($P{idCliente} IS NULL OR v.id_cliente = $P{idCliente})
+AND
+    ($P{estado} IS NULL OR v.estado = $P{estado})
+AND
+    ($P{bodega} IS NULL OR u.id_bodega = $P{bodega})
+ORDER BY
+    v.fecha_venta DESC]]></query>
+	<field name="id_venta" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="id_venta"/>
+		<property name="com.jaspersoft.studio.field.label" value="id_venta"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="id_cliente" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="id_cliente"/>
+		<property name="com.jaspersoft.studio.field.label" value="id_cliente"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="nombre_cliente" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nombre"/>
+		<property name="com.jaspersoft.studio.field.label" value="nombre_cliente"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="clientes"/>
+	</field>
+	<field name="id_usuario" class="java.lang.Integer">
+		<property name="com.jaspersoft.studio.field.name" value="id_usuario"/>
+		<property name="com.jaspersoft.studio.field.label" value="id_usuario"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="nombre_usuario" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nombre"/>
+		<property name="com.jaspersoft.studio.field.label" value="nombre_usuario"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="usuarios"/>
+	</field>
+	<field name="nombre_bodega" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="nombre"/>
+		<property name="com.jaspersoft.studio.field.label" value="nombre_bodega"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="bodegas"/>
+	</field>
+	<field name="fecha_venta" class="java.sql.Date">
+		<property name="com.jaspersoft.studio.field.name" value="fecha_venta"/>
+		<property name="com.jaspersoft.studio.field.label" value="fecha_venta"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="subtotal" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="subtotal"/>
+		<property name="com.jaspersoft.studio.field.label" value="subtotal"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="descuento" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="descuento"/>
+		<property name="com.jaspersoft.studio.field.label" value="descuento"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="iva" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="iva"/>
+		<property name="com.jaspersoft.studio.field.label" value="iva"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="total" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="total"/>
+		<property name="com.jaspersoft.studio.field.label" value="total"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="estado" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="estado"/>
+		<property name="com.jaspersoft.studio.field.label" value="estado"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="tipo_pago" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="tipo_pago"/>
+		<property name="com.jaspersoft.studio.field.label" value="tipo_pago"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="observaciones" class="java.lang.String">
+		<property name="com.jaspersoft.studio.field.name" value="observaciones"/>
+		<property name="com.jaspersoft.studio.field.label" value="observaciones"/>
+		<property name="com.jaspersoft.studio.field.tree.path" value="ventas"/>
+	</field>
+	<field name="ventas_totales" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="ventas_totales"/>
+		<property name="com.jaspersoft.studio.field.label" value="ventas_totales"/>
+	</field>
+	<field name="cantidad_ventas" class="java.lang.Long">
+		<property name="com.jaspersoft.studio.field.name" value="cantidad_ventas"/>
+		<property name="com.jaspersoft.studio.field.label" value="cantidad_ventas"/>
+	</field>
+	<field name="productos_vendidos" class="java.math.BigDecimal">
+		<property name="com.jaspersoft.studio.field.name" value="productos_vendidos"/>
+		<property name="com.jaspersoft.studio.field.label" value="productos_vendidos"/>
+	</field>
+	<variable name="promedioVenta" calculation="Count" class="java.math.BigDecimal">
+		<expression><![CDATA[$F{ventas_totales}.divide(new java.math.BigDecimal($F{cantidad_ventas}), 2, java.math.RoundingMode.HALF_UP)]]></expression>
+		<initialValueExpression><![CDATA[java.math.BigDecimal.ZERO]]></initialValueExpression>
+	</variable>
+	<variable name="fecha" class="java.util.Date">
+		<expression><![CDATA["Generado: " + new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date())]]></expression>
+	</variable>
+	<group name="Group1">
+		<expression><![CDATA[$F{fecha_venta}]]></expression>
+	</group>
+	<background splitType="Stretch"/>
+	<title height="299" splitType="Stretch">
+		<element kind="rectangle" uuid="a0e886a8-f9ad-4457-894e-dbbd7a22d434" x="-20" y="140" width="595" height="100" forecolor="#EDF2F4" backcolor="#EDF2F4">
+			<pen lineColor="#EDF2F4"/>
+		</element>
+		<element kind="rectangle" uuid="49e53c15-f3f3-495e-98f8-04c95b622c21" x="-20" y="-10" width="595" height="80" forecolor="#8D99AE" backcolor="#EDF2F4">
+			<pen lineColor="#EDF2F4"/>
+		</element>
+		<element kind="image" uuid="e42e3f97-887a-42cb-8e62-d1304b88508a" x="0" y="-10" width="90" height="80">
+			<expression><![CDATA[getClass().getResourceAsStream("/raven/icon/logo.png")]]></expression>
+		</element>
+		<element kind="staticText" uuid="52990bab-5329-448d-953b-cd2e47e0e523" x="180" y="-10" width="485" height="80" forecolor="#2B2D42" fontName="Montserrat Black" fontSize="30.0" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[REPORTE DE VENTAS]]></text>
+		</element>
+		<element kind="rectangle" uuid="5234f64c-62c7-4ad1-880a-581c8e672e76" x="-20" y="80" width="595" height="50" forecolor="#8D99AE" backcolor="#EDF2F4">
+			<pen lineColor="#EDF2F4"/>
+		</element>
+		<element kind="staticText" uuid="1c560c56-c5af-4938-bd26-b3260a92a160" x="0" y="110" width="130" height="20" forecolor="#2B2D42" fontName="Montserrat SemiBold" fontSize="10.0" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[Filtros aplicados:
+]]></text>
+		</element>
+		<element kind="rectangle" uuid="488357cf-2eb3-4d1c-8557-f5d62aba02af" x="10" y="156" width="120" height="80" forecolor="#FFFFFF" backcolor="#FFFFFF" radius="15">
+			<pen lineColor="#EDF2F4"/>
+		</element>
+		<element kind="rectangle" uuid="e9fb2a58-d970-4ceb-abf7-440b8a506b12" x="160" y="156" width="120" height="80" forecolor="#FFFFFF" backcolor="#FFFFFF" radius="15">
+			<pen lineColor="#EDF2F4"/>
+		</element>
+		<element kind="staticText" uuid="12e6a288-2a93-4644-a6de-1001d8166e8d" x="10" y="176" width="120" height="20" forecolor="#2B2D42" fontName="Montserrat SemiBold" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[VENTAS TOTALES]]></text>
+		</element>
+		<element kind="staticText" uuid="74a73da1-32e7-4f1a-9026-8d15ac53c0bf" x="160" y="176" width="120" height="20" forecolor="#2B2D42" fontName="Montserrat SemiBold" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[CANTIDAD DE VENTAS
+
+]]></text>
+		</element>
+		<element kind="rectangle" uuid="6b493ad8-42ac-47e5-93a2-15cd76d81015" x="300" y="156" width="120" height="80" forecolor="#FFFFFF" backcolor="#FFFFFF" radius="15">
+			<pen lineColor="#EDF2F4"/>
+		</element>
+		<element kind="staticText" uuid="27f84e42-6d50-48e9-92ea-db1bb760fe89" x="300" y="176" width="120" height="20" forecolor="#2B2D42" fontName="Montserrat SemiBold" fontSize="10.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[PROMEDIO VENTA
+
+]]></text>
+		</element>
+		<element kind="rectangle" uuid="47dba3d3-996e-4ed4-a937-5df0dc9cce48" x="440" y="156" width="120" height="80" forecolor="#FFFFFF" backcolor="#FFFFFF" radius="15">
+			<pen lineColor="#EDF2F4"/>
+		</element>
+		<element kind="staticText" uuid="974915e4-bc11-4475-866d-5a1b1241acb4" x="440" y="176" width="120" height="20" forecolor="#2B2D42" fontName="Montserrat SemiBold" fontSize="9.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[PRODUCTOS VENDIDOS
+
+]]></text>
+		</element>
+		<element kind="rectangle" uuid="08971df0-cfb9-4e7d-bde3-bd63d33aed08" x="-20" y="259" width="595" height="30" forecolor="#D90429" backcolor="#D90429">
+			<pen lineColor="#D90429"/>
+		</element>
+		<element kind="staticText" uuid="08b25675-266f-4348-a008-3ad029b33fb6" x="-20" y="259" width="70" height="30" forecolor="#FFFFFF" fontName="Montserrat ExtraBold" fontSize="16.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[ID]]></text>
+			<box>
+				<pen lineWidth="11.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="df528394-5d9d-4ae5-ab65-804a3a9fd5f9" x="50" y="259" width="90" height="30" forecolor="#FFFFFF" fontName="Montserrat ExtraBold" fontSize="16.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[Fecha
+]]></text>
+			<box>
+				<pen lineWidth="11.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="b9ed4746-34ba-4a62-84fd-7c018a73bee0" x="140" y="259" width="100" height="30" forecolor="#FFFFFF" fontName="Montserrat ExtraBold" fontSize="16.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[Cliente
+]]></text>
+			<box>
+				<pen lineWidth="11.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="ea7d5769-0e48-42fa-89d0-4a874be9fe4b" x="240" y="259" width="110" height="30" forecolor="#FFFFFF" fontName="Montserrat ExtraBold" fontSize="16.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[Estado
+]]></text>
+			<box>
+				<pen lineWidth="11.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="1de61676-be31-45eb-8a5f-e37734112234" x="350" y="259" width="130" height="30" forecolor="#FFFFFF" fontName="Montserrat ExtraBold" fontSize="16.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[Tipo pago]]></text>
+			<box>
+				<pen lineWidth="11.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+			</box>
+		</element>
+		<element kind="staticText" uuid="46c4a2ea-4c0d-456e-8bb7-80317bb0ea3d" x="480" y="259" width="95" height="30" forecolor="#FFFFFF" fontName="Montserrat ExtraBold" fontSize="16.0" hTextAlign="Center" vTextAlign="Middle">
+			<text><![CDATA[Total
+]]></text>
+			<box>
+				<pen lineWidth="11.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+				<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000"/>
+				<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFFFFF"/>
+			</box>
+		</element>
+		<element kind="textField" uuid="187a2146-03e2-4d45-aadd-263279778db4" x="160" y="196" width="120" height="20" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{cantidad_ventas}]]></expression>
+		</element>
+		<element kind="textField" uuid="175a3e10-e48b-4ea5-b9f9-6880c0b80828" x="440" y="196" width="120" height="20" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$F{productos_vendidos}]]></expression>
+		</element>
+		<element kind="textField" uuid="f0900d2a-ef0b-4273-941b-9eb67d5bb346" x="300" y="196" width="120" height="20" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["$" + new java.text.DecimalFormat("#,##0").format($F{ventas_totales}.divide(new java.math.BigDecimal($F{cantidad_ventas}), 2, java.math.RoundingMode.HALF_UP))]]></expression>
+		</element>
+		<element kind="textField" uuid="88085288-384c-4114-bc07-4ac17afc8ed5" x="10" y="196" width="120" height="20" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["$" + new java.text.DecimalFormat("#,##0").format($F{ventas_totales})]]></expression>
+		</element>
+		<element kind="textField" uuid="daa4354a-770d-4a18-b9d8-6604637065d8" x="90" y="105" width="100" height="30" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA[$P{filtrosDescripcion}]]></expression>
+		</element>
+		<element kind="textField" uuid="fea4d7e7-6992-4468-9cd7-9c8f780e41ab" x="280" y="80" width="295" height="30" fontSize="12.0" linkType="None" linkTarget="Self" hTextAlign="Center" vTextAlign="Middle">
+			<expression><![CDATA["Generado: " + new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date())]]></expression>
+		</element>
+		<element kind="staticText" uuid="b924a1bf-af54-4fac-a55c-99b9a4d6dbe6" x="1" y="85" width="130" height="20" forecolor="#2B2D42" fontName="Montserrat SemiBold" fontSize="10.0" hTextAlign="Left" vTextAlign="Middle">
+			<text><![CDATA[Bodega:
+]]></text>
+		</element>
+		<element kind="textField" uuid="c6c180ec-d222-40c8-a665-1e9c07844ad0" x="45" y="90" width="100" height="30">
+			<expression><![CDATA[$F{nombre_bodega}]]></expression>
+		</element>
+	</title>
+	<pageHeader splitType="Stretch"/>
+	<detail>
+		<band height="88">
+			<element kind="rectangle" uuid="9e1e179d-c125-4bc5-8bd9-a6af371a57d2" x="-20" y="-9" width="595" height="30" forecolor="#EDF2F4" backcolor="#EDF2F4">
+				<pen lineColor="#EDF2F4"/>
+			</element>
+			<element kind="textField" uuid="c02b8ead-979b-40ec-8013-b52a72cda442" x="240" y="-9" width="110" height="30" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{estado}]]></expression>
+			</element>
+			<element kind="textField" uuid="0f8c8fa9-4e21-4708-af18-a9c0a1bb34cd" x="480" y="-9" width="94" height="30" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{total}]]></expression>
+			</element>
+			<element kind="textField" uuid="1411fb63-4c7f-444c-8985-e3830a998fb6" x="350" y="-9" width="130" height="30" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{tipo_pago}]]></expression>
+			</element>
+			<element kind="textField" uuid="f0e8b143-ad30-4773-868e-aac06e89234c" x="50" y="-9" width="90" height="30" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{fecha_venta}]]></expression>
+			</element>
+			<element kind="textField" uuid="a2997809-b85b-4787-87f1-44f1e188596f" x="-20" y="-9" width="70" height="30" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{id_venta}]]></expression>
+			</element>
+			<element kind="textField" uuid="48959ca4-d2cc-4251-8f81-d66778939361" x="140" y="-9" width="100" height="30" fontSize="12.0" hTextAlign="Center" vTextAlign="Middle">
+				<expression><![CDATA[$F{nombre_cliente}]]></expression>
+			</element>
+		</band>
+	</detail>
+	<columnFooter height="55" splitType="Stretch"/>
+	<pageFooter height="25" splitType="Stretch"/>
+	<summary splitType="Stretch"/>
+</jasperReport>

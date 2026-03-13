@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Etiqueta">
+  <title>Etiqueta</title>
+  <path d="M20.6 13.4L12 22l-10-10V2h10l8.6 8.6a2 2 0 0 1 0 2.8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="7.5" cy="7.5" r="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+</svg>

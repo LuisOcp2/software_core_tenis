@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE editor_palette_item PUBLIC "-//NetBeans//Editor Palette Item 1.1//EN" "http://www.netbeans.org/dtds/editor-palette-item-1_1.dtd">
+<editor_palette_item version="1.1">
+    <class name="raven.componentes.JIconButton" />
+    <icon16 urlvalue="raven/componentes/resources/icon16.png" />
+    <icon32 urlvalue="raven/componentes/resources/icon32.png" />
+    <description localizing-bundle="raven.componentes.Bundle" 
+               display-name-key="JIconButton" 
+               tooltip-key="JIconButtonTooltip" />
+</editor_palette_item>
+

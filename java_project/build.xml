@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- You may freely edit this file. See commented blocks below for -->
+<!-- some examples of how to customize the build. -->
+<!-- (If you delete it and reopen the project it will be recreated.) -->
+<!-- By default, only the Clean and Build commands use this build script. -->
+<!-- Commands such as Run, Debug, and Test only use this build script if -->
+<!-- the Compile on Save feature is turned off for the project. -->
+<!-- You can turn off the Compile on Save (or Deploy on Save) setting -->
+<!-- in the project's Project Properties dialog box.-->
+<project name="ventaZapatos" default="default" basedir=".">
+    <description>Builds, tests, and runs the project ventaZapatos.</description>
+    <import file="nbproject/build-impl.xml"/>
+    <!--
+
+    There exist several targets which are by default empty and which can be 
+    used for execution of your tasks. These targets are usually executed 
+    before and after some main targets. They are: 
+
+      -pre-init:                 called before initialization of project properties
+      -post-init:                called after initialization of project properties
+      -pre-compile:              called before javac compilation
+      -post-compile:             called after javac compilation
+      -pre-compile-single:       called before javac compilation of single file
+      -post-compile-single:      called after javac compilation of single file
+      -pre-compile-test:         called before javac compilation of JUnit tests
+      -post-compile-test:        called after javac compilation of JUnit tests
+      -pre-compile-test-single:  called before javac compilation of single JUnit test
+      -post-compile-test-single: called after javac compilation of single JUunit test
+      -pre-jar:                  called before JAR building
+      -post-jar:                 called after JAR building
+      -post-clean:               called after cleaning build products
+
+    (Targets beginning with '-' are not intended to be called on their own.)
+
+    Example of inserting an obfuscator after compilation could look like this:
+
+        <target name="-post-compile">
+            <obfuscate>
+                <fileset dir="${build.classes.dir}"/>
+            </obfuscate>
+        </target>
+
+    For list of available properties check the imported 
+    nbproject/build-impl.xml file. 
+
+
+    Another way to customize the build is by overriding existing main targets.
+    The targets of interest are: 
+
+      -init-macrodef-javac:     defines macro for javac compilation
+      -init-macrodef-junit:     defines macro for junit execution
+      -init-macrodef-debug:     defines macro for class debugging
+      -init-macrodef-java:      defines macro for class execution
+      -do-jar:                  JAR building
+      run:                      execution of project 
+      -javadoc-build:           Javadoc generation
+      test-report:              JUnit report generation
+
+    An example of overriding the target for project execution could look like this:
+
+        <target name="run" depends="ventaZapatos-impl.jar">
+            <exec dir="bin" executable="launcher.exe">
+                <arg file="${dist.jar}"/>
+            </exec>
+        </target>
+
+    Notice that the overridden target depends on the jar target and not only on 
+    the compile target as the regular run target does. Again, for a list of available 
+    properties which you can use, check the target you are overriding in the
+    nbproject/build-impl.xml file. 
+
+    -->
+    <target name="package-for-store" depends="jar">
+        <property name="store.jar.name" value="GlobalTenis"/>
+        <property name="store.dir" value="store"/>
+        <property name="store.jar" value="${store.dir}/${store.jar.name}.jar"/>
+        <property name="temp.fat.dir" value="build_temp/fat_jar"/>
+
+        <echo message="Empaquetando ${application.title} en ${store.jar}"/>
+
+        <!-- 1. Limpieza -->
+        <delete dir="${store.dir}"/>
+        <mkdir dir="${store.dir}"/>
+        <delete dir="${temp.fat.dir}"/>
+        <mkdir dir="${temp.fat.dir}"/>
+
+        <!-- 2. Descomprimir TODO para eliminar firmas -->
+        <echo message="Descomprimiendo librerias..."/>
+        <unzip dest="${temp.fat.dir}">
+            <fileset dir="dist/lib" includes="*.jar"/>
+            <fileset dir="dist" includes="*.jar"/>
+        </unzip>
+
+        <!-- 3. Eliminar firmas digitales heredadas (causan SecurityException) -->
+        <echo message="Eliminando firmas digitales (.SF, .DSA, .RSA)..."/>
+        <delete>
+            <fileset dir="${temp.fat.dir}/META-INF" includes="*.SF, *.DSA, *.RSA, *.sf, *.dsa, *.rsa"/>
+        </delete>
+
+        <!-- 4. Crear el JAR final limpio -->
+        <echo message="Creando JAR final..."/>
+        <jar destfile="${store.jar}" basedir="${temp.fat.dir}" filesetmanifest="skip" zip64Mode="as-needed">
+            <manifest>
+                <attribute name="Main-Class" value="${main.class}"/>
+                <attribute name="Multi-Release" value="true"/>
+            </manifest>
+        </jar>
+
+        <!-- 5. Limpieza temporal -->
+        <delete dir="${temp.fat.dir}"/>
+    </target>
+
+    <target name="package-for-mac" depends="package-for-store">
+        <property name="mac.app.name" value="GlobalTenis"/>
+        <property name="mac.dist.dir" value="dist/mac"/>
+        <property name="mac.app.dir" value="${mac.dist.dir}/${mac.app.name}.app"/>
+        <property name="mac.contents.dir" value="${mac.app.dir}/Contents"/>
+        <property name="mac.macos.dir" value="${mac.contents.dir}/MacOS"/>
+        <property name="mac.resources.dir" value="${mac.contents.dir}/Resources"/>
+        <property name="mac.java.dir" value="${mac.contents.dir}/Java"/>
+
+        <echo message="Creando macOS App Bundle en ${mac.app.dir}"/>
+
+        <delete dir="${mac.dist.dir}"/>
+        <mkdir dir="${mac.macos.dir}"/>
+        <mkdir dir="${mac.resources.dir}"/>
+        <mkdir dir="${mac.java.dir}"/>
+
+        <!-- 1. Copiar JAR -->
+        <copy file="${store.jar}" todir="${mac.java.dir}"/>
+
+        <!-- 2. Crear Info.plist -->
+        <echo file="${mac.contents.dir}/Info.plist"><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>${mac.app.name}</string>
+    <key>CFBundleDisplayName</key>
+    <string>${mac.app.name}</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.raven.${mac.app.name}</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>${mac.app.name}</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.10</string>
+    <key>HighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>]]></echo>
+
+        <!-- 3. Crear Launcher Script -->
+        <!-- NOTA: Se usa &#10; para forzar saltos de línea tipo Unix (LF) lo mejor posible desde Ant -->
+        <echo file="${mac.macos.dir}/${mac.app.name}" message="#!/bin/bash&#10;DIR=&quot;$( cd &quot;$( dirname &quot;${BASH_SOURCE[0]}&quot; )&quot; &amp;&amp; pwd )&quot;&#10;java -Xmx1024m -jar &quot;$DIR/../Java/${store.jar.name}.jar&quot; &quot;$@&quot;"/>
+
+        <!-- 4. Instrucciones Finales -->
+        <echo level="info">
+========================================================================
+ PAQUETE MACOS CREADO EXITOSAMENTE EN:
+ ${mac.app.dir}
+
+ [IMPORTANTE] Para que funcione en macOS:
+ 1. Copia la carpeta 'GlobalTenis.app' a tu Mac.
+ 2. Abre la terminal en la Mac y ejecuta:
+    chmod +x GlobalTenis.app/Contents/MacOS/GlobalTenis
+ 3. Si al abrir dice "Desarrollador no identificado":
+    Clic derecho en la App > Abrir > Confirmar.
+========================================================================
+        </echo>
+    </target>
+ 
+</project>

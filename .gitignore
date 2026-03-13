@@ -1,55 +1,233 @@
-﻿/build/
-/nbproject/private/
-/dist/
-/paqueteria
-/build_test/
-/nul
-/lib
-/nbproject/
-/inventario.sql
-/inventario_2.sql
-/inventory_app
-/inventory_api
-/inventory_api.rar
-/installer_resources
-/sql
-/optimizacion
+﻿# Software Core Tenis - Sistema de Gestión de Inventario
+# =====================================================
 
+# Java Desktop Application
+# ------------------------
+# Compiled class file
+*.class
 
-# Auto-generated entries
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build outputs
-dist/
-build/
+# Log file
 *.log
 
-# Environment files
-.env
-.env.*
-!.env.example
+# BlueJ files
+*.ctxt
 
-# IDE files
-.vscode/
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Virtual machine crash logs
+hs_err_pid*
+replay_pid*
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+/java_project/build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IntelliJ IDEA
 .idea/
+*.iws
+*.iml
+*.ipr
+/java_project/out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+/java_project/bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# Flutter Mobile Application
+# --------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/android_project/inventory_app/build/
+/android_project/inventory_app/.fvm/
+
+# Android
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class.bin
+*.dex.jar
+
+# Android Studio
+/android_project/inventory_app/local.properties
+/android_project/inventory_app/.idea/caches
+/android_project/inventory_app/.idea/libraries
+/android_project/inventory_app/.idea/modules.xml
+/android_project/inventory_app/.idea/workspace.xml
+/android_project/inventory_app/.idea/navEditor.xml
+/android_project/inventory_app/.idea/assetWizard.xml
+/android_project/inventory_app/build/
+/android_project/inventory_app/captures
+/android_project/inventory_app/.externalNativeBuild
+/android_project/inventory_app/.cxx
+/android_project/inventory_app/local.properties
+
+# Gradle
+.gradle/
+gradlew
+gradlew.bat
+gradle-wrapper.jar
+
+# Node.js API
+# ----------
+/android_project/inventory_api/node_modules/
+/android_project/inventory_api/npm-debug.log*
+/android_project/inventory_api/yarn-debug.log*
+/android_project/inventory_api/yarn-error.log*
+/android_project/inventory_api/lerna-debug.log*
+/android_project/inventory_api/.pnpm-debug.log/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+/android_project/inventory_api/build/Release/
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# Environment Variables
+# ---------------------
+.env
+.env.test
+.env.local
+.env.production
+/android_project/inventory_api/.env
+
+# IDE and Editors
+# --------------
+.vscode/
 *.swp
 *.swo
 
-# OS files
+# Operating System Files
+# ----------------------
 .DS_Store
+ehthumbs.db
+Desktop.ini
+Icon?
 Thumbs.db
+*~
 
-# Temporary files
+# Temporary and Cache Files
+# -------------------------
+tmp/
+temp/
+.cache/
 *.tmp
 *.temp
-.cache/
 
-# Sensitive files (auto-detected)
-build
-build.xml
-dist
+# Logs
+# ----
+logs/
+*.log
+
+# Database Files
+# --------------
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup Files
+# -------------
+*.bak
+*.backup
+*.old
+
+# Project Specific Files to Ignore
+# ---------------------------------
+/session\.dat
+/recibo_.*\.txt
+/pegasus.*\.jpeg
+/crear_instalador.*\.bat
+/jdk_.*\.bat
+/setup\.iss
+/create_macos_pkg\.sh
+/manifest\.mf
+/optimizacion/
+
+# Keep Important Files
+# --------------------
+!/.gitignore
+!/README.md
+!/LICENSE
+!/CONTRIBUTING.md
+!/CODE_OF_CONDUCT.md
 
