@@ -15,12 +15,12 @@ import raven.modelos.OrdenReservaDetalle;
 /**
  * DAO para el módulo de Carrito de compras web (Órdenes Web).
  *
- * Nombres de tabla confirmados contra el dump SQL real (CREATE TABLE):
- *   inventariobodega      (SIN guión bajo)
- *   productovariantes     (SIN guión bajo)
- *   ordenesreserva        (SIN guión bajo)
- *   ordenesreservadetalle (SIN guión bajo)
- *   Stockpar              (S mayúscula — así está en la BD)
+ * Nombres de tabla confirmados contra information_schema.TABLES EN VIVO:
+ *   inventario_bodega       ✓
+ *   producto_variantes      ✓
+ *   ordenes_reserva         ✓
+ *   ordenes_reserva_detalle ✓
+ *   Stockpar  (columna con S mayúscula en inventario_bodega)
  */
 public class CarritoDAO {
 
@@ -51,12 +51,12 @@ public class CarritoDAO {
                 "       COALESCE(ib.Stockpar, 0) AS stock_disponible, " +
                 "       pv.sku " +
                 "FROM carrito c " +
-                "LEFT JOIN productos p           ON c.idproducto = p.idproducto " +
-                "LEFT JOIN productovariantes pv  ON c.idvariante = pv.idvariante " +
-                "LEFT JOIN tallas t              ON pv.idtalla = t.idtalla " +
-                "LEFT JOIN colores col           ON pv.idcolor = col.idcolor " +
-                "LEFT JOIN bodegas b             ON c.idbodega = b.idbodega " +
-                "LEFT JOIN inventariobodega ib   ON ib.idvariante = c.idvariante " +
+                "LEFT JOIN productos p              ON c.idproducto = p.idproducto " +
+                "LEFT JOIN producto_variantes pv    ON c.idvariante = pv.idvariante " +
+                "LEFT JOIN tallas t                 ON pv.idtalla = t.idtalla " +
+                "LEFT JOIN colores col              ON pv.idcolor = col.idcolor " +
+                "LEFT JOIN bodegas b                ON c.idbodega = b.idbodega " +
+                "LEFT JOIN inventario_bodega ib     ON ib.idvariante = c.idvariante " +
                 "    AND ib.idbodega = c.idbodega AND ib.activo = 1 " +
                 "WHERE c.usuarioid = ? " +
                 "ORDER BY c.fechaagregado DESC";
@@ -187,11 +187,11 @@ public class CarritoDAO {
                 "       t.numero AS talla, col.nombre AS color, " +
                 "       COALESCE(ib.Stockpar, 0) AS stock_disponible " +
                 "FROM carrito c " +
-                "LEFT JOIN productos p           ON c.idproducto = p.idproducto " +
-                "LEFT JOIN productovariantes pv  ON c.idvariante = pv.idvariante " +
-                "LEFT JOIN tallas t              ON pv.idtalla = t.idtalla " +
-                "LEFT JOIN colores col           ON pv.idcolor = col.idcolor " +
-                "LEFT JOIN inventariobodega ib   ON ib.idvariante = c.idvariante " +
+                "LEFT JOIN productos p              ON c.idproducto = p.idproducto " +
+                "LEFT JOIN producto_variantes pv    ON c.idvariante = pv.idvariante " +
+                "LEFT JOIN tallas t                 ON pv.idtalla = t.idtalla " +
+                "LEFT JOIN colores col              ON pv.idcolor = col.idcolor " +
+                "LEFT JOIN inventario_bodega ib     ON ib.idvariante = c.idvariante " +
                 "    AND ib.idbodega = c.idbodega AND ib.activo = 1 " +
                 "WHERE c.usuarioid = ? " +
                 "  AND COALESCE(ib.Stockpar, 0) < c.cantidad";
@@ -234,7 +234,7 @@ public class CarritoDAO {
             double total = subtotal + impuestos;
 
             String sqlOrden =
-                "INSERT INTO ordenesreserva (idusuario, idbodega, direccion, ciudad, " +
+                "INSERT INTO ordenes_reserva (idusuario, idbodega, direccion, ciudad, " +
                 "  departamento, subtotal, impuestos, total, metodopago, notas, " +
                 "  estado, fechacreacion, fechavencimiento) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', NOW(), " +
@@ -257,7 +257,7 @@ public class CarritoDAO {
             idOrdenGenerada = rs.getInt(1);
 
             String sqlDetalle =
-                "INSERT INTO ordenesreservadetalle " +
+                "INSERT INTO ordenes_reserva_detalle " +
                 "  (idorden, idproducto, idvariante, idbodega, cantidad, estado) " +
                 "VALUES (?, ?, ?, ?, ?, 'PENDIENTE')";
             stmtDetalle = con.prepareStatement(sqlDetalle);
@@ -315,10 +315,10 @@ public class CarritoDAO {
                 "       u.nombre AS nombre_usuario, " +
                 "       b.nombre AS nombre_bodega, " +
                 "       COUNT(det.iddetalle) AS cantidad_productos " +
-                "FROM ordenesreserva ord " +
-                "LEFT JOIN usuarios u              ON ord.idusuario = u.idusuario " +
-                "LEFT JOIN bodegas b               ON ord.idbodega  = b.idbodega " +
-                "LEFT JOIN ordenesreservadetalle det ON ord.idorden = det.idorden " +
+                "FROM ordenes_reserva ord " +
+                "LEFT JOIN usuarios u                    ON ord.idusuario = u.idusuario " +
+                "LEFT JOIN bodegas b                     ON ord.idbodega  = b.idbodega " +
+                "LEFT JOIN ordenes_reserva_detalle det   ON ord.idorden   = det.idorden " +
                 "WHERE 1=1 "
             );
             List<Object> params = new ArrayList<>();
@@ -375,7 +375,7 @@ public class CarritoDAO {
                 "       u.nombre AS nombre_usuario, " +
                 "       b.nombre AS nombre_bodega, " +
                 "       0 AS cantidad_productos " +
-                "FROM ordenesreserva ord " +
+                "FROM ordenes_reserva ord " +
                 "LEFT JOIN usuarios u ON ord.idusuario = u.idusuario " +
                 "LEFT JOIN bodegas b  ON ord.idbodega  = b.idbodega " +
                 "WHERE ord.idorden = ?";
@@ -403,11 +403,11 @@ public class CarritoDAO {
                 "       (det.cantidad * COALESCE(pv.precioventa, p.precioventa)) AS subtotal, " +
                 "       p.nombre AS nombre_producto, p.codigomodelo AS codigo_modelo, " +
                 "       t.numero AS talla, col.nombre AS color, pv.sku " +
-                "FROM ordenesreservadetalle det " +
-                "LEFT JOIN productos p           ON det.idproducto = p.idproducto " +
-                "LEFT JOIN productovariantes pv  ON det.idvariante = pv.idvariante " +
-                "LEFT JOIN tallas t              ON pv.idtalla = t.idtalla " +
-                "LEFT JOIN colores col           ON pv.idcolor = col.idcolor " +
+                "FROM ordenes_reserva_detalle det " +
+                "LEFT JOIN productos p              ON det.idproducto = p.idproducto " +
+                "LEFT JOIN producto_variantes pv    ON det.idvariante = pv.idvariante " +
+                "LEFT JOIN tallas t                 ON pv.idtalla = t.idtalla " +
+                "LEFT JOIN colores col              ON pv.idcolor = col.idcolor " +
                 "WHERE det.idorden = ? " +
                 "ORDER BY det.iddetalle";
             stmt = con.prepareStatement(sql);
@@ -447,7 +447,7 @@ public class CarritoDAO {
                 case "finalizado": campoFecha = ", fechafinalizado = NOW()"; break;
                 default: break;
             }
-            String sql = "UPDATE ordenesreserva SET estado = ?" + campoFecha +
+            String sql = "UPDATE ordenes_reserva SET estado = ?" + campoFecha +
                          " WHERE idorden = ?";
             stmt = con.prepareStatement(sql);
             stmt.setString(1, nuevoEstado);
@@ -463,7 +463,7 @@ public class CarritoDAO {
         PreparedStatement stmt = null;
         try {
             con = db.createConnection();
-            String sql = "UPDATE ordenesreserva SET estado = 'cancelado' WHERE idorden = ?";
+            String sql = "UPDATE ordenes_reserva SET estado = 'cancelado' WHERE idorden = ?";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idOrden);
             return stmt.executeUpdate() > 0;
@@ -490,7 +490,7 @@ public class CarritoDAO {
                 "  SUM(CASE WHEN estado = 'cancelado'  THEN 1 ELSE 0 END) AS cancelados, " +
                 "  COALESCE(SUM(CASE WHEN estado IN ('pagado','finalizado') THEN total ELSE 0 END), 0) AS total_ingresos, " +
                 "  COALESCE(AVG(CASE WHEN estado IN ('pagado','finalizado') THEN total END), 0) AS ticket_promedio " +
-                "FROM ordenesreserva " +
+                "FROM ordenes_reserva " +
                 "WHERE DATE(fechacreacion) BETWEEN ? AND ? "
             );
             if (idBodega != null) sql.append("AND idbodega = ? ");
@@ -533,10 +533,10 @@ public class CarritoDAO {
                 "       u.nombre AS nombre_usuario, " +
                 "       b.nombre AS nombre_bodega, " +
                 "       COUNT(det.iddetalle) AS cantidad_productos " +
-                "FROM ordenesreserva ord " +
-                "LEFT JOIN usuarios u              ON ord.idusuario = u.idusuario " +
-                "LEFT JOIN bodegas b               ON ord.idbodega  = b.idbodega " +
-                "LEFT JOIN ordenesreservadetalle det ON ord.idorden = det.idorden " +
+                "FROM ordenes_reserva ord " +
+                "LEFT JOIN usuarios u                    ON ord.idusuario = u.idusuario " +
+                "LEFT JOIN bodegas b                     ON ord.idbodega  = b.idbodega " +
+                "LEFT JOIN ordenes_reserva_detalle det   ON ord.idorden   = det.idorden " +
                 "WHERE (u.nombre LIKE ? OR CAST(ord.idorden AS CHAR) LIKE ? " +
                 "       OR ord.ciudad LIKE ? OR ord.direccion LIKE ?) "
             );
