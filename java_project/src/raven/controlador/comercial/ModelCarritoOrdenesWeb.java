@@ -28,6 +28,13 @@ import raven.modelos.SesionUsuario;
  * UI/UX con soporte completo de tema oscuro/claro usando UIManager (FlatLaf).
  * Los colores se leen dinámicamente en cada render — no se hardcodean.
  * Sigue el mismo patrón de colores que traspasos y ConsultaDetallada.
+ *
+ * FIXES v2:
+ *  - actualizarTablaOrdenes() en invokeLater → elimina filas duplicadas
+ *  - TableRowSorter → tabla ordenable por columna
+ *  - Columna "Ciudad" agregada
+ *  - AccionesCellRenderer: panel/botones reutilizables (no se crean por render)
+ *  - Auto-refresh cada 30 segundos
  */
 public class ModelCarritoOrdenesWeb extends JPanel {
 
@@ -82,25 +89,19 @@ public class ModelCarritoOrdenesWeb extends JPanel {
     private OrdenReserva ordenSeleccionada;
     private final Integer idBodegaFiltro;
 
+    // Auto-refresh timer
+    private Timer autoRefreshTimer;
+
     // ── Helpers de color adaptados al tema ────────────────────────────────────
-    /** Color de fondo del panel/formulario actual según el tema de FlatLaf */
-    private static Color bgPanel()      { return UIManager.getColor("Panel.background"); }
-    /** Fondo de componentes de entrada (campos, combobox) */
-    private static Color bgInput()      { return UIManager.getColor("TextField.background"); }
-    /** Color de texto principal */
-    private static Color fgText()       { return UIManager.getColor("Label.foreground"); }
-    /** Color de texto secundario/muted */
-    private static Color fgMuted()      { Color c = UIManager.getColor("Label.disabledForeground"); return c != null ? c : new Color(108,117,125); }
-    /** Borde sutil entre componentes */
-    private static Color borderColor()  { Color c = UIManager.getColor("Component.borderColor"); return c != null ? c : new Color(200,200,200); }
-    /** Fondo de la cabecera de tablas */
-    private static Color bgTableHeader(){ Color c = UIManager.getColor("TableHeader.background"); return c != null ? c : new Color(245,245,245); }
-    /** Fondo alterno de filas pares */
-    private static Color bgTableEven()  { Color c = UIManager.getColor("Table.background"); return c != null ? c : Color.WHITE; }
-    /** Fondo alterno de filas impares */
-    private static Color bgTableOdd()   { Color c = UIManager.getColor("Table.alternateRowColor"); return c != null ? c : new Color(248,249,252); }
-    /** Fondo de fila seleccionada */
-    private static Color bgTableSel()   { Color c = UIManager.getColor("Table.selectionBackground"); return c != null ? c : new Color(67,97,238,80); }
+    private static Color bgPanel()       { return UIManager.getColor("Panel.background"); }
+    private static Color bgInput()       { return UIManager.getColor("TextField.background"); }
+    private static Color fgText()        { return UIManager.getColor("Label.foreground"); }
+    private static Color fgMuted()       { Color c = UIManager.getColor("Label.disabledForeground"); return c != null ? c : new Color(108,117,125); }
+    private static Color borderColor()   { Color c = UIManager.getColor("Component.borderColor"); return c != null ? c : new Color(200,200,200); }
+    private static Color bgTableHeader() { Color c = UIManager.getColor("TableHeader.background"); return c != null ? c : new Color(245,245,245); }
+    private static Color bgTableEven()   { Color c = UIManager.getColor("Table.background"); return c != null ? c : Color.WHITE; }
+    private static Color bgTableOdd()    { Color c = UIManager.getColor("Table.alternateRowColor"); return c != null ? c : new Color(248,249,252); }
+    private static Color bgTableSel()    { Color c = UIManager.getColor("Table.selectionBackground"); return c != null ? c : new Color(67,97,238,80); }
 
     // =========================================================================
     public ModelCarritoOrdenesWeb() { this(null); }
@@ -118,7 +119,6 @@ public class ModelCarritoOrdenesWeb extends JPanel {
 
     private void initUI() {
         setLayout(new BorderLayout(0, 0));
-        // Fondo adaptativo: deja que FlatLaf maneje el fondo raíz
         putClientProperty(FlatClientProperties.STYLE, "background: $Panel.background");
 
         add(crearHeader(), BorderLayout.NORTH);
@@ -133,6 +133,11 @@ public class ModelCarritoOrdenesWeb extends JPanel {
 
         add(cardPanel, BorderLayout.CENTER);
         cardLayout.show(cardPanel, "LISTA");
+
+        // ── FIX 3: Auto-refresh cada 30 segundos ─────────────────────────────
+        autoRefreshTimer = new Timer(30000, e -> cargarDatosIniciales());
+        autoRefreshTimer.setRepeats(true);
+        autoRefreshTimer.start();
     }
 
     // ── HEADER ────────────────────────────────────────────────────────────────
@@ -187,12 +192,12 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         JPanel panel = new JPanel(new BorderLayout(0, 12));
         panel.setOpaque(false);
         panel.setBorder(new EmptyBorder(16, 16, 16, 16));
-        panel.add(crearPanelKPIs(),       BorderLayout.NORTH);
+        panel.add(crearPanelKPIs(), BorderLayout.NORTH);
 
         JPanel centro = new JPanel(new BorderLayout(0, 10));
         centro.setOpaque(false);
-        centro.add(crearPanelFiltros(),       BorderLayout.NORTH);
-        centro.add(crearPanelTablaOrdenes(),  BorderLayout.CENTER);
+        centro.add(crearPanelFiltros(),      BorderLayout.NORTH);
+        centro.add(crearPanelTablaOrdenes(), BorderLayout.CENTER);
         panel.add(centro, BorderLayout.CENTER);
         return panel;
     }
@@ -209,26 +214,23 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         lblKpiIngresos   = new JLabel("$0");
         lblKpiTicket     = new JLabel("$0");
 
-        panel.add(crearKpiCard("\uD83D\uDCCB Total",       lblKpiTotal,      C_PRIMARY));
-        panel.add(crearKpiCard("\u23F3 Pendientes",        lblKpiPendientes, C_PENDING));
-        panel.add(crearKpiCard("\u2705 Pagados",           lblKpiPagados,    C_PAID));
-        panel.add(crearKpiCard("\uD83C\uDFC1 Finalizados", lblKpiFinaliz,    C_FINISHED));
-        panel.add(crearKpiCard("\uD83D\uDCB0 Ingresos",    lblKpiIngresos,   C_RETIRED));
-        panel.add(crearKpiCard("\uD83C\uDF9F Ticket Prom.",lblKpiTicket,     new Color(108,117,125)));
+        panel.add(crearKpiCard("\uD83D\uDCCB Total",        lblKpiTotal,      C_PRIMARY));
+        panel.add(crearKpiCard("\u23F3 Pendientes",         lblKpiPendientes, C_PENDING));
+        panel.add(crearKpiCard("\u2705 Pagados",            lblKpiPagados,    C_PAID));
+        panel.add(crearKpiCard("\uD83C\uDFC1 Finalizados",  lblKpiFinaliz,    C_FINISHED));
+        panel.add(crearKpiCard("\uD83D\uDCB0 Ingresos",     lblKpiIngresos,   C_RETIRED));
+        panel.add(crearKpiCard("\uD83C\uDF9F Ticket Prom.", lblKpiTicket,     new Color(108,117,125)));
         return panel;
     }
 
     private JPanel crearKpiCard(String label, JLabel valueLabel, Color accentColor) {
         JPanel card = new JPanel(new BorderLayout(0, 4));
-        // Fondo adaptativo via FlatLaf property
-        card.putClientProperty(FlatClientProperties.STYLE,
-            "background: $Table.background; arc: 8");
+        card.putClientProperty(FlatClientProperties.STYLE, "background: $Table.background; arc: 8");
         card.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(borderColor(), 1, true),
             new EmptyBorder(12, 14, 12, 14)
         ));
 
-        // Barra accent en la parte superior
         JPanel topBar = new JPanel();
         topBar.setBackground(accentColor);
         topBar.setPreferredSize(new Dimension(0, 4));
@@ -249,8 +251,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
     // Filtros
     private JPanel crearPanelFiltros() {
         JPanel card = new JPanel(new BorderLayout());
-        card.putClientProperty(FlatClientProperties.STYLE,
-            "background: $Table.background; arc: 8");
+        card.putClientProperty(FlatClientProperties.STYLE, "background: $Table.background; arc: 8");
         card.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(borderColor(), 1, true),
             new EmptyBorder(10, 14, 10, 14)
@@ -261,9 +262,9 @@ public class ModelCarritoOrdenesWeb extends JPanel {
 
         txtBuscar = new JTextField();
         txtBuscar.setColumns(20);
-        txtBuscar.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "\uD83D\uDD0D  Buscar por cliente, # orden...");
+        txtBuscar.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "\uD83D\uDD0D  Buscar por cliente, # orden, ciudad...");
         txtBuscar.setFont(FONT_NORMAL);
-        txtBuscar.setPreferredSize(new Dimension(220, 32));
+        txtBuscar.setPreferredSize(new Dimension(230, 32));
         txtBuscar.addKeyListener(new KeyAdapter() {
             @Override public void keyReleased(KeyEvent e) { filtrarTabla(); }
         });
@@ -297,10 +298,10 @@ public class ModelCarritoOrdenesWeb extends JPanel {
             cargarOrdenes();
         });
 
-        JLabel lbBusq  = new JLabel("Búsqueda:");  lbBusq.setFont(FONT_NORMAL);
-        JLabel lbEst   = new JLabel("Estado:");    lbEst.setFont(FONT_NORMAL);
-        JLabel lbDesde = new JLabel("Desde:");     lbDesde.setFont(FONT_NORMAL);
-        JLabel lbHasta = new JLabel("Hasta:");     lbHasta.setFont(FONT_NORMAL);
+        JLabel lbBusq  = new JLabel("Búsqueda:"); lbBusq.setFont(FONT_NORMAL);
+        JLabel lbEst   = new JLabel("Estado:");   lbEst.setFont(FONT_NORMAL);
+        JLabel lbDesde = new JLabel("Desde:");    lbDesde.setFont(FONT_NORMAL);
+        JLabel lbHasta = new JLabel("Hasta:");    lbHasta.setFont(FONT_NORMAL);
 
         filtros.add(lbBusq);  filtros.add(txtBuscar);
         filtros.add(Box.createHorizontalStrut(4));
@@ -313,43 +314,42 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         return card;
     }
 
-    // Tabla de órdenes
+    // ── FIX 4: Tabla con columna Ciudad ──────────────────────────────────────
     private JPanel crearPanelTablaOrdenes() {
         JPanel card = new JPanel(new BorderLayout());
-        card.putClientProperty(FlatClientProperties.STYLE,
-            "background: $Table.background; arc: 8");
+        card.putClientProperty(FlatClientProperties.STYLE, "background: $Table.background; arc: 8");
         card.setBorder(BorderFactory.createLineBorder(borderColor(), 1, true));
 
-        // Encabezado
         JPanel tableHeader = new JPanel(new BorderLayout());
-        tableHeader.putClientProperty(FlatClientProperties.STYLE,
-            "background: $TableHeader.background");
+        tableHeader.putClientProperty(FlatClientProperties.STYLE, "background: $TableHeader.background");
         tableHeader.setBorder(new EmptyBorder(8, 14, 8, 14));
         JLabel lblTabTitle = new JLabel("\uD83D\uDCCB  Listado de Órdenes Web");
         lblTabTitle.setFont(FONT_SUB);
         tableHeader.add(lblTabTitle, BorderLayout.WEST);
         card.add(tableHeader, BorderLayout.NORTH);
 
-        String[] cols = {"#", "# Orden", "Cliente", "Bodega", "Fecha",
-                         "Productos", "Total", "Método Pago", "Estado", "Acciones"};
+        // ── FIX 4: columna "Ciudad" añadida (índice 3) ───────────────────────
+        String[] cols = {"#", "# Orden", "Cliente", "Ciudad", "Bodega", "Fecha",
+                         "Items", "Total", "Método Pago", "Estado", "Acciones"};
         modeloTabla = new DefaultTableModel(cols, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return c == 9; }
+            @Override public boolean isCellEditable(int r, int c) { return c == 10; }
         };
         tablaOrdenes = new JTable(modeloTabla);
         configurarTabla(tablaOrdenes);
 
-        tablaOrdenes.getColumnModel().getColumn(8).setCellRenderer(new EstadoBadgeRenderer());
-        tablaOrdenes.getColumnModel().getColumn(9).setCellRenderer(new AccionesCellRenderer());
-        tablaOrdenes.getColumnModel().getColumn(9).setCellEditor(new AccionesCellEditor());
+        // ── FIX 2: renderer reutilizable (índices actualizados) ──────────────
+        tablaOrdenes.getColumnModel().getColumn(9).setCellRenderer(new EstadoBadgeRenderer());
+        tablaOrdenes.getColumnModel().getColumn(10).setCellRenderer(new AccionesCellRenderer());
+        tablaOrdenes.getColumnModel().getColumn(10).setCellEditor(new AccionesCellEditor());
 
-        int[] widths = {40, 70, 160, 130, 145, 80, 120, 120, 110, 130};
+        int[] widths = {35, 70, 150, 110, 120, 140, 70, 115, 110, 105, 140};
         for (int i = 0; i < widths.length; i++)
             tablaOrdenes.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
 
         tablaOrdenes.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2 && tablaOrdenes.getSelectedRow() >= 0) {
-                    int fila = tablaOrdenes.getSelectedRow();
+                    int fila = tablaOrdenes.convertRowIndexToModel(tablaOrdenes.getSelectedRow());
                     if (fila < ordenesList.size()) mostrarDetalleOrden(ordenesList.get(fila));
                 }
             }
@@ -362,7 +362,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         footer.putClientProperty(FlatClientProperties.STYLE, "background: $TableHeader.background");
         footer.setBorder(new EmptyBorder(4, 14, 4, 14));
-        JLabel lblInfo = new JLabel("Doble clic en una orden para ver el detalle");
+        JLabel lblInfo = new JLabel("Doble clic en una orden para ver el detalle  |  Auto-refresh: 30s");
         lblInfo.setFont(FONT_SMALL);
         lblInfo.setForeground(fgMuted());
         footer.add(lblInfo);
@@ -382,12 +382,20 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         lblTitulo.setFont(FONT_TITLE);
         topPanel.add(lblTitulo, BorderLayout.WEST);
 
-        JButton btnVolverLista = crearBoton("\u25C4 Volver", new Color(108,117,125), Color.WHITE);
+        JPanel botonesTop = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        botonesTop.setOpaque(false);
+        JButton btnCambiarEstado = crearBoton("\u2699 Cambiar Estado", C_PENDING.darker(), Color.WHITE);
+        JButton btnVolverLista   = crearBoton("\u25C4 Volver",         new Color(108,117,125), Color.WHITE);
+        btnCambiarEstado.addActionListener(e -> {
+            if (ordenSeleccionada != null) mostrarDialogoCambiarEstado(ordenSeleccionada);
+        });
         btnVolverLista.addActionListener(e -> {
             cardLayout.show(cardPanel, "LISTA");
             cargarDatosIniciales();
         });
-        topPanel.add(btnVolverLista, BorderLayout.EAST);
+        botonesTop.add(btnCambiarEstado);
+        botonesTop.add(btnVolverLista);
+        topPanel.add(botonesTop, BorderLayout.EAST);
         panel.add(topPanel, BorderLayout.NORTH);
 
         JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
@@ -403,8 +411,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
 
     private JPanel crearInfoOrden() {
         JPanel card = new JPanel(new GridBagLayout());
-        card.putClientProperty(FlatClientProperties.STYLE,
-            "background: $Table.background; arc: 8");
+        card.putClientProperty(FlatClientProperties.STYLE, "background: $Table.background; arc: 8");
         card.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(borderColor(), 1, true),
             new EmptyBorder(16, 20, 16, 20)
@@ -419,8 +426,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
 
     private JPanel crearTablaProductosOrden() {
         JPanel card = new JPanel(new BorderLayout());
-        card.putClientProperty(FlatClientProperties.STYLE,
-            "background: $Table.background; arc: 8");
+        card.putClientProperty(FlatClientProperties.STYLE, "background: $Table.background; arc: 8");
         card.setBorder(BorderFactory.createLineBorder(borderColor(), 1, true));
 
         JPanel hdr = new JPanel(new BorderLayout());
@@ -461,8 +467,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         panel.add(titulo, BorderLayout.NORTH);
 
         JPanel tableCard = new JPanel(new BorderLayout());
-        tableCard.putClientProperty(FlatClientProperties.STYLE,
-            "background: $Table.background; arc: 8");
+        tableCard.putClientProperty(FlatClientProperties.STYLE, "background: $Table.background; arc: 8");
         tableCard.setBorder(BorderFactory.createLineBorder(borderColor(), 1, true));
 
         String[] cols = {"#","Producto","Código","Talla","Color","Precio","Cantidad","Subtotal","Stock","Quitar"};
@@ -482,10 +487,8 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         tableCard.add(scroll, BorderLayout.CENTER);
         panel.add(tableCard, BorderLayout.CENTER);
 
-        // Footer del carrito
         JPanel bottomPanel = new JPanel(new BorderLayout());
-        bottomPanel.putClientProperty(FlatClientProperties.STYLE,
-            "background: $Table.background; arc: 8");
+        bottomPanel.putClientProperty(FlatClientProperties.STYLE, "background: $Table.background; arc: 8");
         bottomPanel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(borderColor(), 1, true),
             new EmptyBorder(12, 16, 12, 16)
@@ -601,23 +604,30 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         }.execute();
     }
 
+    // ── FIX 1: invokeLater + setRowCount(0) atómico + TableRowSorter ─────────
     private void actualizarTablaOrdenes() {
-        modeloTabla.setRowCount(0);
-        int num = 1;
-        for (OrdenReserva o : ordenesList) {
-            modeloTabla.addRow(new Object[]{
-                num++,
-                "#" + o.getIdOrden(),
-                o.getNombreUsuario()  != null ? o.getNombreUsuario()  : "—",
-                o.getNombreBodega()   != null ? o.getNombreBodega()   : "—",
-                o.getFechaCreacion()  != null ? FMT_DATE.format(o.getFechaCreacion()) : "—",
-                o.getCantidadProductos() + " item(s)",
-                FMT_CURRENCY.format(o.getTotal()),
-                o.getMetodoPago() != null ? o.getMetodoPago() : "—",
-                o.getEstado()     != null ? o.getEstado()     : "—",
-                "Acciones"
-            });
-        }
+        SwingUtilities.invokeLater(() -> {
+            modeloTabla.setRowCount(0);
+            int num = 1;
+            for (OrdenReserva o : ordenesList) {
+                modeloTabla.addRow(new Object[]{
+                    num++,
+                    "#" + o.getIdOrden(),
+                    o.getNombreUsuario()  != null ? o.getNombreUsuario()  : "—",
+                    o.getCiudad()         != null ? o.getCiudad()         : "—",   // FIX 4: Ciudad
+                    o.getNombreBodega()   != null ? o.getNombreBodega()   : "—",
+                    o.getFechaCreacion()  != null ? FMT_DATE.format(o.getFechaCreacion()) : "—",
+                    o.getCantidadProductos() + " item(s)",
+                    FMT_CURRENCY.format(o.getTotal()),
+                    o.getMetodoPago() != null ? o.getMetodoPago() : "—",
+                    o.getEstado()     != null ? o.getEstado()     : "—",
+                    "Acciones"
+                });
+            }
+            // ── FIX 1b: TableRowSorter → columnas ordenables ─────────────────
+            TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(modeloTabla);
+            tablaOrdenes.setRowSorter(sorter);
+        });
     }
 
     private void actualizarTablaCarrito() {
@@ -639,31 +649,36 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         }
     }
 
+    // ── FIX búsqueda incluye Ciudad ───────────────────────────────────────────
     private void filtrarTabla() {
         String texto = txtBuscar.getText().toLowerCase().trim();
         if (texto.isEmpty()) { actualizarTablaOrdenes(); return; }
-        modeloTabla.setRowCount(0);
-        int num = 1;
-        for (OrdenReserva o : ordenesList) {
-            boolean match =
-                (o.getNombreUsuario() != null && o.getNombreUsuario().toLowerCase().contains(texto)) ||
-                String.valueOf(o.getIdOrden()).contains(texto) ||
-                (o.getCiudad() != null && o.getCiudad().toLowerCase().contains(texto)) ||
-                (o.getEstado() != null && o.getEstado().toLowerCase().contains(texto));
-            if (match) {
-                modeloTabla.addRow(new Object[]{
-                    num++, "#"+o.getIdOrden(),
-                    o.getNombreUsuario() != null ? o.getNombreUsuario() : "—",
-                    o.getNombreBodega()  != null ? o.getNombreBodega()  : "—",
-                    o.getFechaCreacion() != null ? FMT_DATE.format(o.getFechaCreacion()) : "—",
-                    o.getCantidadProductos() + " item(s)",
-                    FMT_CURRENCY.format(o.getTotal()),
-                    o.getMetodoPago() != null ? o.getMetodoPago() : "—",
-                    o.getEstado()     != null ? o.getEstado()     : "—",
-                    "Acciones"
-                });
+        SwingUtilities.invokeLater(() -> {
+            modeloTabla.setRowCount(0);
+            int num = 1;
+            for (OrdenReserva o : ordenesList) {
+                boolean match =
+                    (o.getNombreUsuario() != null && o.getNombreUsuario().toLowerCase().contains(texto)) ||
+                    String.valueOf(o.getIdOrden()).contains(texto) ||
+                    (o.getCiudad()  != null && o.getCiudad().toLowerCase().contains(texto)) ||
+                    (o.getEstado()  != null && o.getEstado().toLowerCase().contains(texto)) ||
+                    (o.getNombreBodega() != null && o.getNombreBodega().toLowerCase().contains(texto));
+                if (match) {
+                    modeloTabla.addRow(new Object[]{
+                        num++, "#"+o.getIdOrden(),
+                        o.getNombreUsuario() != null ? o.getNombreUsuario() : "—",
+                        o.getCiudad()        != null ? o.getCiudad()        : "—",
+                        o.getNombreBodega()  != null ? o.getNombreBodega()  : "—",
+                        o.getFechaCreacion() != null ? FMT_DATE.format(o.getFechaCreacion()) : "—",
+                        o.getCantidadProductos() + " item(s)",
+                        FMT_CURRENCY.format(o.getTotal()),
+                        o.getMetodoPago() != null ? o.getMetodoPago() : "—",
+                        o.getEstado()     != null ? o.getEstado()     : "—",
+                        "Acciones"
+                    });
+                }
             }
-        }
+        });
     }
 
     // =========================================================================
@@ -701,7 +716,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         String[] estados = {"pendiente","retirado","pagado","finalizado","cancelado"};
         JPanel panel = new JPanel(new GridLayout(0, 1, 6, 6));
         panel.setBorder(new EmptyBorder(8, 4, 4, 4));
-        JLabel lbl = new JLabel("Orden #" + orden.getIdOrden() + " — Estado: " + orden.getEstado());
+        JLabel lbl = new JLabel("Orden #" + orden.getIdOrden() + " — Estado actual: " + orden.getEstado());
         lbl.setFont(FONT_SUB);
         panel.add(lbl);
         JComboBox<String> cmbNuevo = new JComboBox<>(estados);
@@ -711,11 +726,11 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         panel.add(cmbNuevo);
         JTextField txtMotivo = new JTextField();
         txtMotivo.setFont(FONT_NORMAL);
-        panel.add(new JLabel("Motivo (cancelaciones):"));
+        panel.add(new JLabel("Motivo / nota interna:"));
         panel.add(txtMotivo);
 
         int result = JOptionPane.showConfirmDialog(this, panel,
-            "Cambiar Estado", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            "Cambiar Estado de Orden", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {
             String nuevoEstado = (String) cmbNuevo.getSelectedItem();
             if (nuevoEstado != null && !nuevoEstado.equals(orden.getEstado())) {
@@ -728,7 +743,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
                     @Override protected void done() {
                         try {
                             if (get()) { mostrarToast("Estado actualizado: " + nuevoEstado, C_PAID); cargarDatosIniciales(); }
-                            else         mostrarToast("No se pudo actualizar", C_CANCEL);
+                            else         mostrarToast("No se pudo actualizar el estado", C_CANCEL);
                         } catch (Exception e) { mostrarError("Error al actualizar estado", e); }
                     }
                 }.execute();
@@ -750,11 +765,11 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         JComboBox<String> cmbMetodo = new JComboBox<>(new String[]{"efectivo","transferencia","tarjeta","contraentrega"});
         cmbMetodo.setFont(FONT_NORMAL);
 
-        form.add(new JLabel("Dirección:"));     form.add(txtDireccion);
-        form.add(new JLabel("Ciudad:"));        form.add(txtCiudad);
+        form.add(new JLabel("Dirección:"));    form.add(txtDireccion);
+        form.add(new JLabel("Ciudad:"));       form.add(txtCiudad);
         form.add(new JLabel("Departamento:")); form.add(txtDepto);
         form.add(new JLabel("Método pago:"));  form.add(cmbMetodo);
-        form.add(new JLabel("Notas:"));         form.add(txtNotas);
+        form.add(new JLabel("Notas:"));        form.add(txtNotas);
 
         double total = carritoItems.stream().mapToDouble(CarritoItem::getSubtotal).sum();
         double iva   = total * 0.19;
@@ -777,7 +792,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
                     "Campos requeridos", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            int uid     = SesionUsuario.getInstance().getIdUsuario();
+            int uid      = SesionUsuario.getInstance().getIdUsuario();
             int idBodega = idBodegaFiltro != null ? idBodegaFiltro :
                 (carritoItems.get(0).getIdBodega() != null ? carritoItems.get(0).getIdBodega() : 1);
             new SwingWorker<Integer, Void>() {
@@ -791,7 +806,7 @@ public class ModelCarritoOrdenesWeb extends JPanel {
                     try {
                         int idOrden = get();
                         if (idOrden > 0) {
-                            mostrarToast("\u2705 Orden #" + idOrden + " creada", C_PAID);
+                            mostrarToast("\u2705 Orden #" + idOrden + " creada exitosamente", C_PAID);
                             carritoItems.clear();
                             actualizarTablaCarrito();
                             lblTotalValor.setText(FMT_CURRENCY.format(0));
@@ -829,7 +844,6 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, borderColor()));
         header.setReorderingAllowed(false);
 
-        // Renderer alternado adaptativo al tema
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object value,
@@ -890,7 +904,6 @@ public class ModelCarritoOrdenesWeb extends JPanel {
     // RENDERERS
     // =========================================================================
 
-    /** Badge de estado con colores semánticos — fondo oscuro/claro adaptativo */
     private class EstadoBadgeRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
@@ -907,29 +920,27 @@ public class ModelCarritoOrdenesWeb extends JPanel {
                 return lbl;
             }
 
-            // Detectar si el tema actual es oscuro
             boolean dark = isDarkTheme();
-
             String estado = value != null ? value.toString().toLowerCase() : "";
             switch (estado) {
                 case "pendiente":
-                    lbl.setBackground(dark ? new Color(80,60,0)   : new Color(255,249,224));
-                    lbl.setForeground(dark ? new Color(255,200,0) : new Color(180,130,0));
+                    lbl.setBackground(dark ? new Color(80,60,0)    : new Color(255,249,224));
+                    lbl.setForeground(dark ? new Color(255,200,0)  : new Color(180,130,0));
                     break;
                 case "retirado":
-                    lbl.setBackground(dark ? new Color(0,55,80)   : new Color(224,242,254));
-                    lbl.setForeground(dark ? new Color(0,180,220) : new Color(2,132,199));
+                    lbl.setBackground(dark ? new Color(0,55,80)    : new Color(224,242,254));
+                    lbl.setForeground(dark ? new Color(0,180,220)  : new Color(2,132,199));
                     break;
                 case "pagado":
-                    lbl.setBackground(dark ? new Color(0,55,20)   : new Color(220,252,231));
-                    lbl.setForeground(dark ? new Color(0,200,80)  : new Color(21,128,61));
+                    lbl.setBackground(dark ? new Color(0,55,20)    : new Color(220,252,231));
+                    lbl.setForeground(dark ? new Color(0,200,80)   : new Color(21,128,61));
                     break;
                 case "finalizado":
-                    lbl.setBackground(dark ? new Color(50,0,100)  : new Color(237,233,254));
+                    lbl.setBackground(dark ? new Color(50,0,100)   : new Color(237,233,254));
                     lbl.setForeground(dark ? new Color(180,130,255): new Color(109,40,217));
                     break;
                 case "cancelado":
-                    lbl.setBackground(dark ? new Color(80,0,0)    : new Color(254,226,226));
+                    lbl.setBackground(dark ? new Color(80,0,0)     : new Color(254,226,226));
                     lbl.setForeground(dark ? new Color(255,100,100): new Color(185,28,28));
                     break;
                 default:
@@ -940,54 +951,62 @@ public class ModelCarritoOrdenesWeb extends JPanel {
         }
     }
 
-    /** Detecta si el tema actual de FlatLaf es oscuro */
     private static boolean isDarkTheme() {
         Color bg = UIManager.getColor("Panel.background");
         if (bg == null) return false;
-        // Luminancia: si es < 128 → oscuro
         double lum = 0.299 * bg.getRed() + 0.587 * bg.getGreen() + 0.114 * bg.getBlue();
         return lum < 128;
     }
 
+    // ── FIX 2: AccionesCellRenderer con panel/botones reutilizables ───────────
     private class AccionesCellRenderer extends DefaultTableCellRenderer {
+        private final JPanel  panel   = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 4));
+        private final JButton btnVer  = crearMiniBtn("\uD83D\uDC41 Ver",    C_RETIRED);
+        private final JButton btnEst  = crearMiniBtn("\u2699 Estado", new Color(245,158,11));
+
+        public AccionesCellRenderer() {
+            panel.setOpaque(true);
+            panel.add(btnVer);
+            panel.add(btnEst);
+        }
+
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int col) {
-            JPanel p = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 2));
-            p.setBackground(isSelected ? bgTableSel() : (row % 2 == 0 ? bgTableEven() : bgTableOdd()));
-            JButton btnVer    = new JButton("Ver");
-            JButton btnEstado = new JButton("Estado");
-            btnVer.setFont(FONT_SMALL);    btnEstado.setFont(FONT_SMALL);
-            btnVer.setForeground(Color.WHITE); btnEstado.setForeground(Color.WHITE);
-            btnVer.setBackground(C_RETIRED);   btnEstado.setBackground(C_PENDING.darker());
-            btnVer.setOpaque(true);  btnVer.setBorderPainted(false);
-            btnEstado.setOpaque(true); btnEstado.setBorderPainted(false);
-            btnVer.setPreferredSize(new Dimension(48, 24));
-            btnEstado.setPreferredSize(new Dimension(64, 24));
-            p.add(btnVer); p.add(btnEstado);
-            return p;
+            panel.setBackground(isSelected ? bgTableSel() : (row % 2 == 0 ? bgTableEven() : bgTableOdd()));
+            return panel;
+        }
+
+        private JButton crearMiniBtn(String txt, Color bg) {
+            JButton b = new JButton(txt);
+            b.setFont(FONT_SMALL);
+            b.setForeground(Color.WHITE);
+            b.setBackground(bg);
+            b.setOpaque(true);
+            b.setBorderPainted(false);
+            b.setFocusPainted(false);
+            b.setPreferredSize(new Dimension(80, 26));
+            return b;
         }
     }
 
+    // ── FIX 2b: AccionesCellEditor sincronizado con renderer ──────────────────
     private class AccionesCellEditor extends DefaultCellEditor {
-        private JPanel panel;
-        private JButton btnVer, btnEstado;
+        private final JPanel  panel;
+        private final JButton btnVer;
+        private final JButton btnEstado;
         private int currentRow = -1;
 
         public AccionesCellEditor() {
             super(new JCheckBox());
             setClickCountToStart(1);
-            panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 2));
+
+            panel    = new JPanel(new FlowLayout(FlowLayout.CENTER, 4, 4));
+            btnVer   = crearMiniBtn("\uD83D\uDC41 Ver",    C_RETIRED);
+            btnEstado= crearMiniBtn("\u2699 Estado", new Color(245,158,11));
             panel.setOpaque(true);
-            btnVer    = new JButton("Ver");
-            btnEstado = new JButton("Estado");
-            btnVer.setFont(FONT_SMALL);    btnEstado.setFont(FONT_SMALL);
-            btnVer.setForeground(Color.WHITE); btnEstado.setForeground(Color.WHITE);
-            btnVer.setBackground(C_RETIRED);   btnEstado.setBackground(C_PENDING.darker());
-            btnVer.setOpaque(true);  btnVer.setBorderPainted(false);
-            btnEstado.setOpaque(true); btnEstado.setBorderPainted(false);
-            btnVer.setPreferredSize(new Dimension(48, 24));
-            btnEstado.setPreferredSize(new Dimension(64, 24));
+            panel.add(btnVer);
+            panel.add(btnEstado);
 
             btnVer.addActionListener(e -> {
                 fireEditingStopped();
@@ -999,16 +1018,28 @@ public class ModelCarritoOrdenesWeb extends JPanel {
                 if (currentRow >= 0 && currentRow < ordenesList.size())
                     mostrarDialogoCambiarEstado(ordenesList.get(currentRow));
             });
-            panel.add(btnVer); panel.add(btnEstado);
         }
 
         @Override
         public Component getTableCellEditorComponent(JTable table, Object value,
                 boolean isSelected, int row, int col) {
-            currentRow = row;
+            currentRow = tablaOrdenes.convertRowIndexToModel(row);
             panel.setBackground(bgTableSel());
             return panel;
         }
+
         @Override public Object getCellEditorValue() { return "Acciones"; }
+
+        private JButton crearMiniBtn(String txt, Color bg) {
+            JButton b = new JButton(txt);
+            b.setFont(FONT_SMALL);
+            b.setForeground(Color.WHITE);
+            b.setBackground(bg);
+            b.setOpaque(true);
+            b.setBorderPainted(false);
+            b.setFocusPainted(false);
+            b.setPreferredSize(new Dimension(80, 26));
+            return b;
+        }
     }
 }
