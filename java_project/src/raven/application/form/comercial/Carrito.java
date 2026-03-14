@@ -1036,8 +1036,8 @@ public class Carrito extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        datePicker = new raven.datechooser.DatePicker();
-        datePicker1 = new raven.datechooser.DatePicker();
+        datePicker = new raven.datetime.component.date.DatePicker();
+        datePicker1 = new raven.datetime.component.date.DatePicker();
         jPanel1 = new javax.swing.JPanel();
         panelMain = new javax.swing.JPanel();
         panelVentasMes = new javax.swing.JPanel();
@@ -1349,15 +1349,32 @@ public class Carrito extends javax.swing.JPanel {
 
     private void btnFiltrarActionPerformed(java.awt.event.ActionEvent evt) {
         try {
-            String fechaInicio = txtFechaIn.getText().trim();
-            String fechaFin = txtFechaFin.getText().trim();
+            String fechaInicioStr = txtFechaIn.getText().trim();
+            String fechaFinStr = txtFechaFin.getText().trim();
             String clienteSeleccionado = (String) cbxCliente.getSelectedItem();
             String estadoSeleccionado = (String) cbxEstado.getSelectedItem();
             Integer idBodega = UserSession.getInstance().getIdBodegaUsuario();
+            
+            java.util.Date fechaInicio = null;
+            java.util.Date fechaFin = null;
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy");
+            
+            if (!fechaInicioStr.isEmpty()) {
+                fechaInicio = sdf.parse(fechaInicioStr);
+            }
+            if (!fechaFinStr.isEmpty()) {
+                fechaFin = sdf.parse(fechaFinStr);
+            }
+            
+            Integer idCliente = null;
+            if (!"Seleccionar".equals(clienteSeleccionado) && cbxCliente.getSelectedIndex() > 0) {
+                idCliente = serviceCliente.getIdByNombre(clienteSeleccionado);
+            }
+            
             List<Map<String, Object>> ordenes = ordenReservaService.filtrarOrdenes(
-                    fechaInicio.isEmpty() ? null : fechaInicio,
-                    fechaFin.isEmpty() ? null : fechaFin,
-                    "Seleccionar".equals(clienteSeleccionado) ? null : clienteSeleccionado,
+                    fechaInicio,
+                    fechaFin,
+                    idCliente,
                     "Todos".equals(estadoSeleccionado) ? null : estadoSeleccionado,
                     idBodega);
             cargarOrdenes(ordenes);
@@ -1382,8 +1399,8 @@ public class Carrito extends javax.swing.JPanel {
     private javax.swing.JButton btnReiniciar;
     private javax.swing.JComboBox<String> cbxCliente;
     private javax.swing.JComboBox<String> cbxEstado;
-    private raven.datechooser.DatePicker datePicker;
-    private raven.datechooser.DatePicker datePicker1;
+    private raven.datetime.component.date.DatePicker datePicker;
+    private raven.datetime.component.date.DatePicker datePicker1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JTable jTable1;

@@ -6,12 +6,11 @@
             <file>file:/C:/Users/Luis%20Ocampo/Documents/xtreme/CODIGO/Xtreme/src/raven/controlador/principal/AppConfig.java</file>
         </group>
         <group>
-            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/src/raven/application/form/admin/MonitorCajasForm.java</file>
-            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/src/raven/application/form/principal/generarVentaFor1.java</file>
-            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/src/raven/application/form/productos/traspasos/creartraspaso.java</file>
-            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/src/raven/application/form/productos/traspasos/traspasos.java</file>
-            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/src/raven/controlador/productos/TraspasoController.java</file>
-            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/src/raven/dao/UsuarioDAO.java</file>
+            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/java_project/src/raven/application/form/comercial/ComprasForm.java</file>
+            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/java_project/src/raven/dao/CarritoDAO.java</file>
+            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/java_project/src/raven/modelos/SesionUsuario.java</file>
+            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/java_project/src/raven/controlador/principal/conexion.java</file>
+            <file>file:/home/luis/Documentos/BACKUP/GLOBAL/globalVersionBeta1.0.31/java_project/src/raven/application/form/comercial/reporteVentas.java</file>
         </group>
     </open-files>
 </project-private>

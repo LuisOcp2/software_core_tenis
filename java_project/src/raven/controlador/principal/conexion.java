@@ -11,8 +11,8 @@ public class conexion {
     private BasicDataSource dataSource;
     public static final String host = Capa.Luisa(Capa.host);
     public static final String port = "3306";
-    //public static final String database = Capa.Luisa(Capa.datsbase);
-    public static final String database = "siro_prueba"; //"siro_prueba"; //soft_xtreme
+    public static final String database = Capa.Luisa(Capa.datsbase);
+    //public static final String database = "siro_prueba"; //"siro_prueba"; //soft_xtreme
     public static final String username = Capa.Luisa(Capa.user);
     public static final String password = Capa.Luisa(Capa.password);
   // public static final String password = "";

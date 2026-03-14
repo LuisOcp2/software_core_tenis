@@ -565,7 +565,7 @@ public class ComprasForm extends javax.swing.JPanel {
             if (usr != null) {
                 idUsuario = usr.getIdUsuario();
             } else {
-                idUsuario = SesionUsuario.getInstance().getUsuarioActual().getId();
+                idUsuario = SesionUsuario.getInstance().getIdUsuario();
             }
         }
 
@@ -627,7 +627,7 @@ public class ComprasForm extends javax.swing.JPanel {
                     if (usr != null) {
                         idUsuario = usr.getIdUsuario();
                     } else {
-                        idUsuario = SesionUsuario.getInstance().getUsuarioActual().getId();
+                        idUsuario = SesionUsuario.getInstance().getIdUsuario();
                     }
                 }
 
@@ -672,7 +672,7 @@ public class ComprasForm extends javax.swing.JPanel {
 
         if (confirmar == JOptionPane.YES_OPTION) {
             try {
-                int idUsuario = SesionUsuario.getInstance().getUsuarioActual().getId();
+                int idUsuario = SesionUsuario.getInstance().getIdUsuario();
                 serviceCompra.anularCompra(idCompra, idUsuario);
                 cargarCompras();
                 Toast.show(this, Toast.Type.SUCCESS, "Compra anulada exitosamente");
