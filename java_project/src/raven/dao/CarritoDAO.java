@@ -16,7 +16,7 @@ import raven.modelos.OrdenReservaDetalle;
  * DAO para el módulo de Carrito de compras web (Órdenes Web).
  *
  * Columnas confirmadas contra information_schema.COLUMNS en vivo (soft_xtreme):
- *   carrito                 → id_carrito, id_usuario, session_id, id_producto,
+ *   carrito                 → id_carrito, usuario_id, session_id, id_producto,
  *                             id_variante, id_bodega, cantidad, precio_unitario,
  *                             fecha_agregado, fecha_actualizado
  *   ordenes_reserva         → id_orden, id_usuario, id_bodega, fecha_creacion,
@@ -38,7 +38,7 @@ import raven.modelos.OrdenReservaDetalle;
  * NOTA: Si la tabla 'carrito' aún no existe en la BD, ejecutar:
  *   CREATE TABLE IF NOT EXISTS carrito (
  *     id_carrito        INT AUTO_INCREMENT PRIMARY KEY,
- *     id_usuario        INT NOT NULL,
+ *     usuario_id        INT NOT NULL,
  *     session_id        VARCHAR(128),
  *     id_producto       INT NOT NULL,
  *     id_variante       INT NOT NULL,
@@ -47,7 +47,7 @@ import raven.modelos.OrdenReservaDetalle;
  *     precio_unitario   DECIMAL(12,2) NOT NULL,
  *     fecha_agregado    DATETIME DEFAULT CURRENT_TIMESTAMP,
  *     fecha_actualizado DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- *     UNIQUE KEY uk_usuario_variante_bodega (id_usuario, id_variante, id_bodega)
+ *     UNIQUE KEY uk_usuario_variante_bodega (usuario_id, id_variante, id_bodega)
  *   );
  */
 public class CarritoDAO {
@@ -70,7 +70,7 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             String sql =
-                "SELECT c.id_carrito, c.id_usuario, c.session_id, c.id_producto, " +
+                "SELECT c.id_carrito, c.usuario_id, c.session_id, c.id_producto, " +
                 "       c.id_variante, c.id_bodega, c.cantidad, c.precio_unitario, " +
                 "       c.fecha_agregado, c.fecha_actualizado, " +
                 "       p.nombre AS nombre_producto, p.codigo_modelo, " +
@@ -86,7 +86,7 @@ public class CarritoDAO {
                 "LEFT JOIN bodegas b                ON c.id_bodega   = b.id_bodega " +
                 "LEFT JOIN inventario_bodega ib     ON ib.id_variante = c.id_variante " +
                 "    AND ib.id_bodega = c.id_bodega AND ib.activo = 1 " +
-                "WHERE c.id_usuario = ? " +
+                "WHERE c.usuario_id = ? " +
                 "ORDER BY c.fecha_agregado DESC";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idUsuario);
@@ -107,7 +107,7 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             String sql =
-                "INSERT INTO carrito (id_usuario, id_producto, id_variante, id_bodega, cantidad, precio_unitario) " +
+                "INSERT INTO carrito (usuario_id, id_producto, id_variante, id_bodega, cantidad, precio_unitario) " +
                 "VALUES (?, ?, ?, ?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE " +
                 "  cantidad = cantidad + VALUES(cantidad), " +
@@ -160,7 +160,7 @@ public class CarritoDAO {
         PreparedStatement stmt = null;
         try {
             con = db.createConnection();
-            stmt = con.prepareStatement("DELETE FROM carrito WHERE id_usuario = ?");
+            stmt = con.prepareStatement("DELETE FROM carrito WHERE usuario_id = ?");
             stmt.setInt(1, idUsuario);
             return stmt.executeUpdate() >= 0;
         } finally {
@@ -175,7 +175,7 @@ public class CarritoDAO {
         try {
             con = db.createConnection();
             stmt = con.prepareStatement(
-                "SELECT COUNT(*) AS total FROM carrito WHERE id_usuario = ?");
+                "SELECT COUNT(*) AS total FROM carrito WHERE usuario_id = ?");
             stmt.setInt(1, idUsuario);
             rs = stmt.executeQuery();
             return rs.next() ? rs.getInt("total") : 0;
@@ -192,7 +192,7 @@ public class CarritoDAO {
             con = db.createConnection();
             String sql =
                 "SELECT COALESCE(SUM(c.cantidad * c.precio_unitario), 0) AS total " +
-                "FROM carrito c WHERE c.id_usuario = ?";
+                "FROM carrito c WHERE c.usuario_id = ?";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idUsuario);
             rs = stmt.executeQuery();
@@ -221,7 +221,7 @@ public class CarritoDAO {
                 "LEFT JOIN colores col              ON pv.id_color    = col.id_color " +
                 "LEFT JOIN inventario_bodega ib     ON ib.id_variante = c.id_variante " +
                 "    AND ib.id_bodega = c.id_bodega AND ib.activo = 1 " +
-                "WHERE c.id_usuario = ? " +
+                "WHERE c.usuario_id = ? " +
                 "  AND COALESCE(ib.Stock_par, 0) < c.cantidad";
             stmt = con.prepareStatement(sql);
             stmt.setInt(1, idUsuario);
@@ -300,7 +300,7 @@ public class CarritoDAO {
             }
             stmtDetalle.executeBatch();
 
-            stmtCarrito = con.prepareStatement("DELETE FROM carrito WHERE id_usuario = ?");
+            stmtCarrito = con.prepareStatement("DELETE FROM carrito WHERE usuario_id = ?");
             stmtCarrito.setInt(1, idUsuario);
             stmtCarrito.executeUpdate();
 
